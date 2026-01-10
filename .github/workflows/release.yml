@@ -40,6 +40,22 @@ jobs:
         with:
           tagName: app-v__VERSION__ 
           releaseName: 'Xcroller v__VERSION__'
-          releaseBody: 'See the assets to download this version and install.'
-          releaseDraft: true
+          releaseBody: |
+            ## Xcroller v0.2.0 - The Favorites Update!
+
+            This release introduces the highly requested **Favorites System** and several UX improvements.
+
+            ### ✨ New Features
+            - **Stars everywhere**: Toggle favorites from the grid or the fullscreen viewer (press `F`).
+            - **Favorites Feed**: A dedicated view for all your curated content.
+            - **Export/Clear**: Easily export your favorites to a folder or reset them all.
+            - **Screenshots**: Check out the [README](https://github.com/Aikzar/Xcroller#readme) to see the app in action!
+
+            ### 🔧 Fixes & Improvements
+            - **Fullscreen Esc**: Pressing `Esc` now reliably exits both the viewer and app fullscreen mode.
+            - **Performance**: Improved database indexing for faster library browsing.
+
+            ### 📦 Assets
+            Download the appropriate installer for your OS below.
+          releaseDraft: false
           prerelease: false
