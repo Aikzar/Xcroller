@@ -1,7 +1,7 @@
 # Xcroller ✨
 
-[![Release](https://img.shields.io/github/v/release/Jens/Xcroller?style=flat-square)](https://github.com/Jens/Xcroller/releases)
-[![License](https://img.shields.io/github/license/Jens/Xcroller?style=flat-square)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/Aikzar/Xcroller?style=flat-square)](https://github.com/Aikzar/Xcroller/releases)
+[![License](https://img.shields.io/github/license/Aikzar/Xcroller?style=flat-square)](LICENSE)
 
 **Xcroller** is a high-performance, aesthetically pleasing media gallery and feed viewer built for the desktop. It's designed to handle massive libraries of images and videos with a focus on speed, immersion, and ease of discovery.
 
@@ -33,7 +33,7 @@
 
 ## 🛠️ Installation
 
-Xcroller is currently in beta. You can download the latest installer from the [Releases](https://github.com/Jens/Xcroller/releases) page.
+Xcroller is currently in beta. You can download the latest installer from the [Releases](https://github.com/Aikzar/Xcroller/releases) page.
 
 1. Download `Xcroller_x64_en-US.msi` (or the `.exe` bundle).
 2. Run the installer.
