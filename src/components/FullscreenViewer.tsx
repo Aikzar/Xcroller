@@ -141,6 +141,51 @@ export function FullscreenViewer() {
     // Use Tauri's optimized asset protocol for direct file streaming
     const assetUrl = useMemo(() => item ? convertFileSrc(item.path) : null, [item?.path]);
 
+    const [isZoomed, setIsZoomed] = useState(false);
+    const [pan, setPan] = useState({ x: 0, y: 0 });
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+        resetControlsTimeout();
+        if (isZoomed) {
+            const { clientX, clientY } = e;
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            // Scale 2.5
+            const scale = 2.5;
+
+            // Calculate pan to follow mouse relative to center
+            // (0.5 - pct) * dimension * (scale - 1)
+            const x = (0.5 - (clientX / width)) * width * (scale - 1);
+            const y = (0.5 - (clientY / height)) * height * (scale - 1);
+
+            setPan({ x, y });
+        }
+    };
+
+    const toggleZoom = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (isZoomed) {
+            setIsZoomed(false);
+            setPan({ x: 0, y: 0 });
+        } else {
+            setIsZoomed(true);
+            // Set initial pan based on click position? Or center? Start with click position logic reuse
+            const { clientX, clientY } = e;
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const scale = 2.5;
+            const x = (0.5 - (clientX / width)) * width * (scale - 1);
+            const y = (0.5 - (clientY / height)) * height * (scale - 1);
+            setPan({ x, y });
+        }
+    };
+
+    // Reset zoom on slide change
+    useEffect(() => {
+        setIsZoomed(false);
+        setPan({ x: 0, y: 0 });
+    }, [selectedIndex]);
+
     if (selectedIndex === -1 || !item || !assetUrl) return null;
 
     return (
@@ -149,14 +194,18 @@ export function FullscreenViewer() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 backdrop-blur-xl"
+                className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-0 backdrop-blur-xl overflow-hidden"
                 onClick={handleClose}
-                onMouseMove={resetControlsTimeout}
+                onMouseMove={handleMouseMove}
             >
                 {/* Content Container */}
                 <div
-                    className="relative max-w-full max-h-full w-full h-full flex items-center justify-center"
+                    className="relative max-w-full max-h-full w-full h-full flex items-center justify-center transition-transform duration-75 ease-out"
                     onClick={(e) => e.stopPropagation()}
+                    style={{
+                        transform: isZoomed ? `translate(${pan.x}px, ${pan.y}px) scale(2.5)` : 'scale(1)',
+                        cursor: isZoomed ? 'zoom-out' : item.file_type === 'image' ? 'zoom-in' : 'default'
+                    }}
                 >
                     {item.file_type === 'video' ? (
                         <>
@@ -169,14 +218,14 @@ export function FullscreenViewer() {
                                 onClick={togglePlayPause}
                             />
 
-                            {/* Video Controls */}
+                            {/* Video Controls - Hide when zoomed (video doesn't zoom though) */}
                             <AnimatePresence>
-                                {showControls && (
+                                {showControls && !isZoomed && (
                                     <motion.div
                                         initial={{ opacity: 0, y: 20 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, y: 20 }}
-                                        className="absolute bottom-4 left-4 right-4 bg-black/70 backdrop-blur-md rounded-lg p-4 flex flex-col gap-2"
+                                        className="absolute bottom-4 left-4 right-4 bg-black/70 backdrop-blur-md rounded-lg p-4 flex flex-col gap-2 max-w-3xl mx-auto"
                                         onClick={(e) => e.stopPropagation()}
                                     >
                                         {/* Seek Bar */}
@@ -228,7 +277,8 @@ export function FullscreenViewer() {
                         <img
                             src={assetUrl}
                             alt={item.path}
-                            className="max-w-full max-h-full w-auto h-auto rounded-lg shadow-2xl object-contain"
+                            className="max-w-full max-h-full w-auto h-auto shadow-2xl object-contain"
+                            onClick={toggleZoom}
                         />
                     )}
                 </div>

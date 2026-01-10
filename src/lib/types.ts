@@ -35,6 +35,6 @@ export interface FilterOptions {
     max_size?: number;
     extensions?: string[];
     folder_paths?: string[]; // Selection of folders for this feed
-    sort_by?: "created_at" | "size_bytes" | "resolution" | "duration_sec" | "random";
+    sort_by?: "created_at" | "size_bytes" | "resolution" | "duration_sec" | "filename" | "random";
     sort_order?: "asc" | "desc";
 }

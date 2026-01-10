@@ -107,6 +107,7 @@ export const MediaGrid = () => {
         setViewBottom(container.scrollTop + container.clientHeight + 2000);
 
         let lastUpdateTime = 0;
+        let scrollAccumulator = container.scrollTop;
 
         const scroll = (time: number) => {
             if (!lastRafTime) lastRafTime = time;
@@ -114,8 +115,19 @@ export const MediaGrid = () => {
             lastRafTime = time;
 
             if (isAutoScrolling && !isHoverPaused) {
+                // Check if user manually scrolled (large discrepancy)
+                if (Math.abs(container.scrollTop - scrollAccumulator) > 5) {
+                    scrollAccumulator = container.scrollTop;
+                }
+
                 // Adjust speed based on deltaTime to keep it consistent
-                container.scrollTop += (autoScrollSpeed * deltaTime) / 8;
+                // Moving the division by 8 to the speed setting or removing it would be cleaner,
+                // but keeping it for consistency with previous "feel" if 1.0 was good.
+                // At 0.1 speed -> 0.2px per frame. Accumulator handles the float.
+                scrollAccumulator += (autoScrollSpeed * deltaTime) / 8;
+                container.scrollTop = scrollAccumulator;
+            } else {
+                scrollAccumulator = container.scrollTop;
             }
             rafId = requestAnimationFrame(scroll);
         };

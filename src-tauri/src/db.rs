@@ -208,6 +208,7 @@ pub mod changes {
             Some("size_bytes") => "size_bytes",
             Some("resolution") => "(width * height)",
             Some("duration_sec") => "duration_sec",
+            Some("filename") => "path",
             Some("random") => "RANDOM()",
             _ => "created_at",
         };

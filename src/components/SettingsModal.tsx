@@ -251,6 +251,20 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                             <span>Intense</span>
                                         </div>
                                     </div>
+                                    <div className="flex flex-col gap-2 p-4 bg-black/20 rounded-xl border border-white/5">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm text-white/90 font-bold">Recursive Scanning</span>
+                                                <span className="text-[10px] text-xcroller-muted">Include subfolders when adding a root folder</span>
+                                            </div>
+                                            <button
+                                                onClick={() => useAppStore.getState().setIncludeSubdirectories(!useAppStore.getState().includeSubdirectories)}
+                                                className={`w-12 h-6 rounded-full transition-colors relative ${useAppStore.getState().includeSubdirectories ? 'bg-xcroller-red' : 'bg-white/10'}`}
+                                            >
+                                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${useAppStore.getState().includeSubdirectories ? 'left-7' : 'left-1'}`} />
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 

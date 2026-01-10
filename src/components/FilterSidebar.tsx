@@ -1,6 +1,6 @@
 import { useAppStore } from '../lib/store';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Filter, SortAsc, SortDesc, Image as ImageIcon, Video, Layers, Calendar, HardDrive, Ruler, Clock } from 'lucide-react';
+import { X, Filter, SortAsc, SortDesc, Image as ImageIcon, Video, Layers, Calendar, HardDrive, Ruler, Clock, FileText } from 'lucide-react';
 import { FilterOptions } from '../lib/types';
 
 interface FilterSidebarProps {
@@ -55,6 +55,7 @@ export function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
                                 <div className="grid grid-cols-1 gap-2">
                                     {[
                                         { id: 'created_at', label: 'Date Added', icon: Calendar },
+                                        { id: 'filename', label: 'Filename', icon: FileText },
                                         { id: 'size_bytes', label: 'File Size', icon: HardDrive },
                                         { id: 'resolution', label: 'Resolution', icon: Ruler },
                                         { id: 'duration_sec', label: 'Duration', icon: Clock },
@@ -64,8 +65,8 @@ export function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
                                             key={option.id}
                                             onClick={() => updateFilter({ sort_by: option.id as any })}
                                             className={`flex items-center justify-between p-3 rounded-lg transition-all border ${filters.sort_by === option.id
-                                                    ? 'bg-xcroller-red border-xcroller-red text-white'
-                                                    : 'bg-white/5 border-white/5 hover:bg-white/10 text-white/70'
+                                                ? 'bg-xcroller-red border-xcroller-red text-white'
+                                                : 'bg-white/5 border-white/5 hover:bg-white/10 text-white/70'
                                                 }`}
                                         >
                                             <div className="flex items-center gap-3">

@@ -3,7 +3,7 @@ use std::fs;
 use std::path::Path;
 use walkdir::WalkDir;
 
-pub fn scan_directory(folder_path: &str, db_path: &Path) -> Result<usize, String> {
+pub fn scan_directory(folder_path: &str, db_path: &Path, recursive: bool) -> Result<usize, String> {
     let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
 
     conn.execute("PRAGMA synchronous = OFF", []).ok();
@@ -14,7 +14,14 @@ pub fn scan_directory(folder_path: &str, db_path: &Path) -> Result<usize, String
         "jpg", "jpeg", "png", "gif", "webp", "mp4", "webm", "mov", "mkv",
     ];
 
-    for entry in WalkDir::new(folder_path).into_iter().filter_map(|e| e.ok()) {
+    let walker = WalkDir::new(folder_path);
+    let walker = if !recursive {
+        walker.max_depth(1)
+    } else {
+        walker
+    };
+
+    for entry in walker.into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
         if path.is_file() {
             if let Some(ext) = path.extension() {

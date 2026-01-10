@@ -30,9 +30,12 @@ fn normalize_path(path: &str) -> String {
 }
 
 #[tauri::command]
-async fn scan_folder(app: AppHandle, path: String) -> Result<usize, String> {
+async fn scan_folder(app: AppHandle, path: String, recursive: bool) -> Result<usize, String> {
     let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let db_path = app_dir.join("xcroller.db");
+    
+    // Normalize path first
+    let path = normalize_path(&path);
 
     // 1. Add to folders table
     {
@@ -42,7 +45,7 @@ async fn scan_folder(app: AppHandle, path: String) -> Result<usize, String> {
 
     // 2. Run scan
     let count =
-        tauri::async_runtime::spawn_blocking(move || scanner::scan_directory(&path, &db_path))
+        tauri::async_runtime::spawn_blocking(move || scanner::scan_directory(&path, &db_path, recursive))
             .await
             .map_err(|e| e.to_string())??;
 
@@ -62,6 +65,8 @@ fn remove_folder(app: AppHandle, path: String) -> Result<(), String> {
     let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let db_path = app_dir.join("xcroller.db");
     let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
+    
+    let path = normalize_path(&path);
     db::changes::remove_folder(&conn, &path).map_err(|e| e.to_string())
 }
 

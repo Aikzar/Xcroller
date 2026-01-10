@@ -12,6 +12,7 @@ interface AppState {
     isHoverPaused: boolean;
     hoverVolume: number;
     autoScrollSpeed: number;
+    includeSubdirectories: boolean;
     isFullscreen: boolean;
     filters: FilterOptions;
     feeds: Feed[];
@@ -24,6 +25,7 @@ interface AppState {
     setSelectedMediaId: (id: number | null) => void;
     setHoverVolume: (volume: number) => void;
     setAutoScrollSpeed: (speed: number) => void;
+    setIncludeSubdirectories: (include: boolean) => void;
     setIsFullscreen: (status: boolean) => void;
     setFilters: (filters: Partial<FilterOptions>) => void;
     setIsAutoScrolling: (status: boolean) => void;
@@ -31,7 +33,7 @@ interface AppState {
     toggleAutoScroll: () => void;
     updateItemDimensions: (id: number, width: number, height: number) => void;
     loadFolders: () => Promise<void>;
-    addFolder: (path: string) => Promise<void>;
+    addFolder: (path: string, recursive?: boolean) => Promise<void>;
     removeFolder: (path: string) => Promise<void>;
     fetchMedia: (reset?: boolean) => Promise<void>;
     toggleStar: (id: number) => void;
@@ -53,6 +55,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     isHoverPaused: false,
     hoverVolume: 0.5,
     autoScrollSpeed: 1.0,
+    includeSubdirectories: true,
     isFullscreen: false,
     filters: {
         media_type: 'all',
@@ -68,6 +71,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     setSelectedMediaId: (id) => set({ selectedMediaId: id }),
     setHoverVolume: (volume) => set({ hoverVolume: volume }),
     setAutoScrollSpeed: (speed) => set({ autoScrollSpeed: speed }),
+    setIncludeSubdirectories: (include) => set({ includeSubdirectories: include }),
     setIsFullscreen: (status) => set({ isFullscreen: status }),
     setFilters: async (newFilters) => {
         const currentFilters = { ...get().filters, ...newFilters };
@@ -113,11 +117,13 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
     },
 
-    addFolder: async (path) => {
+    addFolder: async (path, recursive) => {
         set({ isLoading: true });
         try {
+            // Get recursive setting from state if not provided
+            const isRecursive = recursive ?? get().includeSubdirectories;
             // 1. Scan (this adds to DB and returns count)
-            await invoke('scan_folder', { path });
+            await invoke('scan_folder', { path, recursive: isRecursive });
             // 2. Reload folders
             await get().loadFolders();
             // 3. Reload media (resetting list)
