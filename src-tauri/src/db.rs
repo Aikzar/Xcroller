@@ -77,6 +77,7 @@ pub struct FilterOptions {
     pub max_size: Option<i64>,
     pub extensions: Option<Vec<String>>,
     pub folder_paths: Option<Vec<String>>, // Added for feed-specific logic
+    pub favorites_only: Option<bool>,
     pub sort_by: Option<String>, // "created_at", "size_bytes", "resolution", "duration_sec", "random"
     pub sort_order: Option<String>, // "asc", "desc"
 }
@@ -129,6 +130,10 @@ pub mod changes {
     ) -> Result<Vec<MediaItem>> {
         let mut query = "SELECT id, path, file_type, size_bytes, created_at, width, height, duration_sec, starred FROM media_items".to_string();
         let mut where_clauses = Vec::new();
+
+        if let Some(true) = filters.favorites_only {
+            where_clauses.push("starred = 1".to_string());
+        }
 
         // Feed / Folder constraints
         if let Some(paths) = filters.folder_paths {
@@ -316,6 +321,11 @@ pub mod changes {
             "UPDATE media_items SET width = ?1, height = ?2 WHERE id = ?3",
             params![width, height, id],
         )?;
+        Ok(())
+    }
+
+    pub fn clear_favorites(conn: &Connection) -> Result<()> {
+        conn.execute("UPDATE media_items SET starred = 0", [])?;
         Ok(())
     }
 }

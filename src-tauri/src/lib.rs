@@ -1,7 +1,6 @@
 mod db;
 mod scanner;
 
-use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 
 fn normalize_path(path: &str) -> String {
@@ -89,6 +88,14 @@ fn toggle_star(app: AppHandle, id: i64) -> Result<bool, String> {
     let db_path = app_dir.join("xcroller.db");
     let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
     db::changes::toggle_star(&conn, id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn clear_favorites(app: AppHandle) -> Result<(), String> {
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let db_path = app_dir.join("xcroller.db");
+    let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
+    db::changes::clear_favorites(&conn).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -229,6 +236,7 @@ pub fn run() {
             remove_folder,
             get_media,
             toggle_star,
+            clear_favorites,
             export_starred,
             update_media_dimensions,
             get_feeds,

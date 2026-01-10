@@ -16,7 +16,7 @@ interface AppState {
     isFullscreen: boolean;
     filters: FilterOptions;
     feeds: Feed[];
-    activeFeedId: number | 'home';
+    activeFeedId: number | 'home' | 'favorites';
 
     hasMore: boolean;
 
@@ -39,10 +39,12 @@ interface AppState {
     toggleStar: (id: number) => void;
 
     // Feed Actions
-    setActiveFeed: (feedId: number | 'home') => void;
+    setActiveFeed: (feedId: number | 'home' | 'favorites') => void;
     loadFeeds: () => Promise<void>;
     saveFeed: (feed: Feed) => Promise<void>;
     deleteFeed: (id: number) => Promise<void>;
+    exportFavorites: (targetPath: string) => Promise<number>;
+    clearFavorites: () => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -78,7 +80,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         set({ filters: currentFilters, mediaItems: [], hasMore: true });
 
         const { activeFeedId, feeds, saveFeed } = get();
-        if (activeFeedId !== 'home') {
+        if (activeFeedId !== 'home' && activeFeedId !== 'favorites') {
             const feed = feeds.find(f => f.id === activeFeedId);
             if (feed) {
                 await saveFeed({
@@ -120,13 +122,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     addFolder: async (path, recursive) => {
         set({ isLoading: true });
         try {
-            // Get recursive setting from state if not provided
             const isRecursive = recursive ?? get().includeSubdirectories;
-            // 1. Scan (this adds to DB and returns count)
+            // 1. Scan
             await invoke('scan_folder', { path, recursive: isRecursive });
             // 2. Reload folders
             await get().loadFolders();
-            // 3. Reload media (resetting list)
+            // 3. Reload media
             await get().fetchMedia(true);
         } catch (e) {
             console.error("Failed to add folder", e);
@@ -150,20 +151,21 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (!get().hasMore && !reset) return;
 
         set({ isLoading: true });
-        const limit = 50; // Smaller chunks for better performance
+        const limit = 50;
         const offset = reset ? 0 : get().mediaItems.length;
         const { activeFeedId, feeds, folderPaths, filters } = get();
         let queryFilters = { ...filters };
 
-        // If we have an active feed, merge its folder set
-        if (activeFeedId !== 'home') {
+        if (activeFeedId === 'favorites') {
+            queryFilters.favorites_only = true;
+        } else if (activeFeedId !== 'home') {
             const feed = feeds.find(f => f.id === activeFeedId);
             if (feed) {
                 const feedFolders = JSON.parse(feed.folder_paths);
                 queryFilters.folder_paths = feedFolders;
             }
         } else {
-            // Home feed: union of all active folders
+            // Home feed
             queryFilters.folder_paths = folderPaths.filter(f => f.is_active).map(f => f.path);
         }
 
@@ -175,7 +177,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                 isLoading: false
             }));
 
-            if (reset && newItems.length === 0 && queryFilters.folder_paths && queryFilters.folder_paths.length > 0) {
+            if (reset && newItems.length === 0 && queryFilters.folder_paths && queryFilters.folder_paths.length > 0 && activeFeedId !== 'favorites') {
                 // Retry once if empty on start
                 setTimeout(() => {
                     const currentItems = get().mediaItems;
@@ -191,7 +193,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     },
 
     toggleStar: async (id) => {
-        // Optimistic update
         set((state) => ({
             mediaItems: state.mediaItems.map(item =>
                 item.id === id ? { ...item, starred: !item.starred } : item
@@ -207,6 +208,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     setActiveFeed: (feedId) => {
         const { feeds } = get();
         if (feedId === 'home') {
+            set({
+                activeFeedId: feedId,
+                mediaItems: [],
+                filters: {
+                    media_type: 'all',
+                    orientation: 'all',
+                    sort_by: 'created_at',
+                    sort_order: 'desc'
+                }
+            });
+        } else if (feedId === 'favorites') {
             set({
                 activeFeedId: feedId,
                 mediaItems: [],
@@ -259,6 +271,27 @@ export const useAppStore = create<AppState>((set, get) => ({
             get().fetchMedia(true);
         } catch (e) {
             console.error("Failed to delete feed", e);
+        }
+    },
+
+    exportFavorites: async (targetPath) => {
+        try {
+            const count = await invoke<number>('export_starred', { targetPath });
+            return count;
+        } catch (e) {
+            console.error("Failed to export favorites", e);
+            throw e;
+        }
+    },
+
+    clearFavorites: async () => {
+        try {
+            await invoke('clear_favorites');
+            if (get().activeFeedId === 'favorites') {
+                await get().fetchMedia(true);
+            }
+        } catch (e) {
+            console.error("Failed to clear favorites", e);
         }
     }
 }));

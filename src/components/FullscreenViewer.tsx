@@ -1,11 +1,11 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { X, ChevronLeft, ChevronRight, Play, Pause, Volume2, VolumeX } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Play, Pause, Volume2, VolumeX, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../lib/store';
 import { convertFileSrc } from '@tauri-apps/api/core';
 
 export function FullscreenViewer() {
-    const { mediaItems, selectedMediaId, setSelectedMediaId } = useAppStore();
+    const { mediaItems, selectedMediaId, setSelectedMediaId, toggleStar } = useAppStore();
     const [isPlaying, setIsPlaying] = useState(true);
     const [volume, setVolume] = useState(1);
     const [isMuted, setIsMuted] = useState(false);
@@ -85,6 +85,9 @@ export function FullscreenViewer() {
             if (e.key === ' ') {
                 e.preventDefault();
                 togglePlayPause();
+            }
+            if (e.key === 'f') {
+                if (item.id) toggleStar(item.id);
             }
         };
         window.addEventListener('keydown', handleKeyDown);
@@ -295,6 +298,19 @@ export function FullscreenViewer() {
                     </div>
                 </div>
 
+                {/* Star Button */}
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (item.id) toggleStar(item.id);
+                    }}
+                    className={`absolute top-4 right-16 p-2 rounded-full transition-colors z-50 pointer-events-auto ${item.starred ? 'bg-xcroller-red text-white' : 'bg-white/10 hover:bg-white/20 text-white'
+                        }`}
+                    title="Toggle Favorite (F)"
+                >
+                    <Star size={24} className={item.starred ? 'fill-current' : ''} />
+                </button>
+
                 {/* Close Button */}
                 <button
                     onClick={handleClose}
@@ -326,6 +342,6 @@ export function FullscreenViewer() {
                 </div>
 
             </motion.div>
-        </AnimatePresence>
+        </AnimatePresence >
     );
 }

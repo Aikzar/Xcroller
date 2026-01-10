@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAppStore } from '../lib/store';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Minus, Plus, Grid3X3, FolderPlus, Play, Pause, Settings, Volume2, Maximize, Minimize, Filter, RefreshCcw } from 'lucide-react';
-import { open } from '@tauri-apps/plugin-dialog';
+import { Minus, Plus, Grid3X3, FolderPlus, Play, Pause, Settings, Volume2, Maximize, Minimize, Filter, RefreshCcw, Star, Download, Trash2 } from 'lucide-react';
+import { open, message, ask } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { SettingsModal } from './SettingsModal';
 import { FilterSidebar } from './FilterSidebar';
@@ -25,7 +25,9 @@ export function Toolbar() {
         activeFeedId,
         setActiveFeed,
         fetchMedia,
-        loadFolders
+        loadFolders,
+        exportFavorites,
+        clearFavorites
     } = useAppStore();
     const [isVisible, setIsVisible] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
@@ -45,6 +47,22 @@ export function Toolbar() {
             unlisten.then(u => u());
         };
     }, [isFullscreen, setIsFullscreen]);
+
+    // Global Esc handler for exiting fullscreen
+    useEffect(() => {
+        const handleKeyDown = async (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                const win = getCurrentWindow();
+                const isFull = await win.isFullscreen();
+                if (isFull) {
+                    await win.setFullscreen(false);
+                    setIsFullscreen(false);
+                }
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [setIsFullscreen]);
 
     const handleToggleFullscreen = async () => {
         const win = getCurrentWindow();
@@ -111,6 +129,35 @@ export function Toolbar() {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [toggleAutoScroll]);
 
+    const handleExportFavorites = async () => {
+        try {
+            const selected = await open({
+                directory: true,
+                multiple: false,
+                title: "Select Export Folder"
+            });
+
+            if (selected && typeof selected === 'string') {
+                const count = await exportFavorites(selected);
+                await message(`Successfully exported ${count} favorites to ${selected}`, { title: 'Export Complete', kind: 'info' });
+            }
+        } catch (err) {
+            console.error(err);
+            await message('Failed to export favorites', { title: 'Error', kind: 'error' });
+        }
+    };
+
+    const handleClearFavorites = async () => {
+        const confirmed = await ask('Are you sure you want to clear all favorites? This cannot be undone.', {
+            title: 'Clear Favorites',
+            kind: 'warning'
+        });
+
+        if (confirmed) {
+            await clearFavorites();
+        }
+    };
+
     return (
         <>
             <AnimatePresence>
@@ -153,6 +200,14 @@ export function Toolbar() {
                             >
                                 HOME FEED
                             </button>
+                            <button
+                                onClick={() => setActiveFeed('favorites')}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-1 ${activeFeedId === 'favorites' ? 'bg-xcroller-red text-white shadow-lg' : 'text-xcroller-muted hover:text-white hover:bg-white/5'
+                                    }`}
+                            >
+                                <Star size={12} className={activeFeedId === 'favorites' ? 'fill-current' : ''} />
+                                FAVORITES
+                            </button>
                             {feeds.map(feed => (
                                 <button
                                     key={feed.id}
@@ -163,6 +218,29 @@ export function Toolbar() {
                                     {feed.name}
                                 </button>
                             ))}
+                        </div>
+
+                        {/* Favorites Actions */}
+                        <div className="flex items-center">
+                            {activeFeedId === 'favorites' && (
+                                <div className="flex items-center gap-2 bg-xcroller-red/20 border border-xcroller-red/30 rounded-full px-2 py-1 mr-4">
+                                    <button
+                                        onClick={handleExportFavorites}
+                                        className="p-1.5 hover:bg-xcroller-red hover:text-white rounded-full transition-all text-xcroller-red"
+                                        title="Export Favorites"
+                                    >
+                                        <Download size={16} />
+                                    </button>
+                                    <div className="w-px h-4 bg-xcroller-red/30" />
+                                    <button
+                                        onClick={handleClearFavorites}
+                                        className="p-1.5 hover:bg-xcroller-red hover:text-white rounded-full transition-all text-xcroller-red"
+                                        title="Clear All Favorites"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex items-center gap-6">
