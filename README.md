@@ -48,4 +48,4 @@ Xcroller is currently in beta. You can download the latest installer from the [R
 
 ---
 
-Built with ❤️ for media enthusiasts.
+Vibecoded with ❤️ for media enthusiasts.
