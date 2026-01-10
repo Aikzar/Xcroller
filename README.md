@@ -9,15 +9,23 @@
   <img src="docs/screenshots/Main_Feed.png" alt="Xcroller Main Feed" width="800">
 </p>
 
-## 🚀 Features
+## 🚀 Detailed Features
 
-- **💫 Infinite Fluid Grid**: A fast, responsive masonry grid that handles thousands of items with ease.
-- **⭐ Favorites System**: Star your favorite media and access them instantly in a dedicated feed.
-- **🔄 Smart Autoscroll**: Sit back and browse. Scroll speed is fully adjustable, and it intelligently pauses on hover.
-- **🔍 Powerful Filtering**: Filter by media type (Image/Video), orientation, resolution, or duration.
-- **📂 Folder-Based Feeds**: Create custom feeds from specify folders or your entire library.
-- **⚡ Hotkey Driven**: Everything is accessible via keyboard for a power-user experience.
-- **📦 Easy Export**: Export all your favorited media to a new folder with one click.
+### ⭐ Favorites & Curation
+- **One-Click Starring**: Instantly mark any media as a favorite from the grid view or the immersive viewer.
+- **Dedicated Favorites Feed**: A separate workspace to view and manage your curated collection without distractions.
+- **Bulk Export**: Select a folder and export all your favorited files at once. The app preserves original filenames for easy identification.
+- **Database Reset**: Safely clear all favorites when starting a new project.
+
+### 🖼️ Immersive Media Viewer
+- **Fluid Zoom & Pan**: Zoom into high-resolution content (up to 2.5x) and pan effortlessly by moving your mouse.
+- **Dynamic Controls**: Video controls (seek bar, volume, play/pause) appear only when needed, ensuring 100% focus on your media.
+- **Live Background Backfilling**: Dimensions and metadata are processed in the background, ensuring the grid always remains perfectly aligned.
+
+### 🔄 Advanced Automation
+- **Smooth Autoscroll**: Browse hands-free with adjustable speeds. The system automatically detects when you're hovering over an item to pause and play audio previews.
+- **Smart Scanning**: Recursive folder scanning allows you to point Xcroller at a high-level directory and let it discover every image and video within.
+- **Optimized Data Layer**: Built on SQLite with custom indexing for instant loading of libraries containing 10,000+ items.
 
 ## 📸 Screenshots
 

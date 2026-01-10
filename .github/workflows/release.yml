@@ -41,21 +41,36 @@ jobs:
           tagName: app-v__VERSION__ 
           releaseName: 'Xcroller v__VERSION__'
           releaseBody: |
-            ## Xcroller v0.2.0 - The Favorites Update!
+            ## Xcroller v0.2.0 - The Favorites & Quality of Life Update ✨
 
-            This release introduces the highly requested **Favorites System** and several UX improvements.
+            This major update transforms Xcroller into a fully-fledged media curator. We've introduced a robust Favorites system, advanced media handling, and significant UX polish.
 
-            ### ✨ New Features
-            - **Stars everywhere**: Toggle favorites from the grid or the fullscreen viewer (press `F`).
-            - **Favorites Feed**: A dedicated view for all your curated content.
-            - **Export/Clear**: Easily export your favorites to a folder or reset them all.
-            - **Screenshots**: Check out the [README](https://github.com/Aikzar/Xcroller#readme) to see the app in action!
+            ### ⭐ Favorites & Curation
+            - **Global Starring**: Toggle favorites from the main grid or the immersive viewer using the new Star icon or the `F` hotkey.
+            - **Dedicated Favorites Feed**: Instantly access your curated collection via the new "Favorites" tab in the feed switcher.
+            - **Export to Folder**: One-click export that copies all favorited media to a directory of your choice—perfect for organizing your best content.
+            - **Clear All**: Reset your favorites with a single, safe confirmation dialog.
 
-            ### 🔧 Fixes & Improvements
-            - **Fullscreen Esc**: Pressing `Esc` now reliably exits both the viewer and app fullscreen mode.
-            - **Performance**: Improved database indexing for faster library browsing.
+            ### 🖼️ Enhanced Media Viewer
+            - **Precision Zoom & Pan**: Deep-dive into high-resolution images. Features logic that follows your mouse movements for a fluid inspection experience.
+            - **Smart Video Handling**: Persistent volume controls and an intuitive seek bar that stay out of the way during playback.
+            - **Instant Metadata**: View file paths, dimensions, and types directly in the viewer overlay.
+
+            ### 🚀 Navigation & Performance
+            - **Recursive Scanning**: Now you can toggle recursion for folders, allowing you to index nested directories with one click.
+            - **Advanced Sorting**: Added support for **Filename (Path) Sorting**, alongside existing date and size filters.
+            - **Fluid Autoscroll**: Refined mouse-hover logic that smoothly pauses scrolling without jarring movements.
+            - **High-Speed Indexing**: Optimized SQLite indices (idx_media_starred, idx_media_type) for lightning-fast feed switching.
+
+            ### 🔧 UX/UI Improvements
+            - **Escape Key Integration**: The `Esc` key now intelligently closes the media viewer AND exits application fullscreen mode in one go.
+            - **Glassmorphism UI**: Refined toolbar and sidebar with improved blur effects and better visual hierarchy.
+            - **Responsive Grid**: Grid column controls now range from 1 to 15, adapting to any screen size.
 
             ### 📦 Assets
-            Download the appropriate installer for your OS below.
+            Download the appropriate installer for your OS below. For Windows users, the `.msi` is the recommended path for a smooth installation.
+
+            ---
+            *Built with the power of Tauri & Rust. Experience your media like never before.*
           releaseDraft: false
           prerelease: false
