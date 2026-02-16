@@ -54,6 +54,9 @@ Xcroller is currently in beta. You can download the latest installer from the [R
 - **Database**: [SQLite](https://sqlite.org/) (High-speed local indexing)
 - **Styling**: Vanilla CSS with a focus on glassmorphism and modern UI.
 
+## License
+This project is licensed under the **PolyForm Noncommercial License 1.0.0**.
+
 ---
 
 Vibecoded with ❤️ for media enthusiasts.
