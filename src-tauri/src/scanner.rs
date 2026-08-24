@@ -1,3 +1,4 @@
+use crate::storage;
 use rusqlite::{params, Connection};
 use std::fs;
 use std::path::Path;
@@ -90,7 +91,7 @@ pub fn scan_directory(folder_path: &str, db_path: &Path, recursive: bool) -> Res
 
                     insert
                         .execute(params![
-                            path.to_string_lossy(),
+                            storage::normalize_path(&path.to_string_lossy()),
                             file_type,
                             size as i64,
                             created as i64,

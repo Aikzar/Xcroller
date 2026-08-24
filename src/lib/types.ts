@@ -15,6 +15,7 @@ export interface Folder {
     id: number;
     path: string;
     is_active: boolean;
+    is_available: boolean;
 }
 
 export interface Feed {

@@ -24,7 +24,10 @@ function App() {
         }
       });
 
-      await Promise.all([loadFolders(), loadFeeds()]);
+      // Loading folders also repairs a changed external-drive letter and
+      // rewrites saved feeds, so feeds must be read afterwards.
+      await loadFolders();
+      await loadFeeds();
       await loadPreferences();
       // After folders and feeds are loaded, the store state is ready for the first fetch
       useAppStore.getState().fetchMedia(true);

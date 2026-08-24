@@ -10,6 +10,17 @@ interface SettingsModalProps {
     onClose: () => void;
 }
 
+const parseFeedFolderPaths = (serialized: string): string[] => {
+    try {
+        const parsed: unknown = JSON.parse(serialized);
+        return Array.isArray(parsed)
+            ? parsed.filter((path): path is string => typeof path === 'string')
+            : [];
+    } catch {
+        return [];
+    }
+};
+
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     const {
         folderPaths,
@@ -65,7 +76,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     const startEditing = (feed: Feed) => {
         setEditingFeedId(feed.id!);
         setNewFeedName(feed.name);
-        setSelectedFolders(JSON.parse(feed.folder_paths));
+        setSelectedFolders(parseFeedFolderPaths(feed.folder_paths));
         setIsCreatingFeed(true);
     };
 
@@ -147,11 +158,16 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                                         {folderPaths.map(f => (
                                                             <button
                                                                 key={f.id}
+                                                                type="button"
                                                                 onClick={() => toggleFolderSelection(f.path)}
-                                                                className={`w-full flex items-center justify-between p-2 rounded-lg text-xs transition-colors ${selectedFolders.includes(f.path) ? 'bg-xcroller-red/20 border border-xcroller-red/40 text-white' : 'bg-black/20 border border-white/5 text-white/60 hover:bg-black/40'
+                                                                disabled={!f.is_available}
+                                                                title={f.is_available ? f.path : `${f.path} — drive unavailable`}
+                                                                className={`w-full flex items-center justify-between gap-2 p-2 rounded-lg text-xs transition-colors disabled:cursor-not-allowed ${selectedFolders.includes(f.path) ? 'bg-xcroller-red/20 border border-xcroller-red/40 text-white' : 'bg-black/20 border border-white/5 text-white/60 hover:bg-black/40'
+                                                                    } ${!f.is_available ? 'opacity-50' : ''
                                                                     }`}
                                                             >
                                                                 <span className="truncate flex-1 text-left">{f.path}</span>
+                                                                {!f.is_available && <span className="shrink-0 text-[9px] uppercase tracking-wide">Unavailable</span>}
                                                                 {selectedFolders.includes(f.path) && <Check size={14} className="text-xcroller-red" />}
                                                             </button>
                                                         ))}
@@ -190,7 +206,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                                     <div className="flex flex-col overflow-hidden text-left">
                                                         <span className="text-sm font-bold text-white uppercase tracking-tight">{feed.name}</span>
                                                         <span className="text-[10px] text-xcroller-muted truncate">
-                                                            {JSON.parse(feed.folder_paths).length} folders included
+                                                            {parseFeedFolderPaths(feed.folder_paths).length} folders included
                                                         </span>
                                                     </div>
                                                 </div>
@@ -224,10 +240,17 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                         <div className="text-sm text-xcroller-muted italic py-2">No folders added yet.</div>
                                     ) : (
                                         folderPaths.map((folder) => (
-                                            <div key={folder.id} className="flex items-center justify-between p-3 bg-black/20 rounded-xl hover:bg-black/30 transition-colors group border border-white/5">
+                                            <div key={folder.id} className={`flex items-center justify-between p-3 bg-black/20 rounded-xl hover:bg-black/30 transition-colors group border ${folder.is_available ? 'border-white/5' : 'border-amber-400/20'}`}>
                                                 <div className="flex items-center gap-3 overflow-hidden">
-                                                    <FolderIcon size={16} className="text-xcroller-muted group-hover:text-xcroller-red transition-colors shrink-0" />
-                                                    <span className="text-sm text-white/90 truncate font-mono text-[11px]" title={folder.path}>{folder.path}</span>
+                                                    <FolderIcon size={16} className={`${folder.is_available ? 'text-xcroller-muted group-hover:text-xcroller-red' : 'text-amber-300/70'} transition-colors shrink-0`} />
+                                                    <div className="flex min-w-0 flex-col gap-0.5">
+                                                        <span className="text-sm text-white/90 truncate font-mono text-[11px]" title={folder.path}>{folder.path}</span>
+                                                        {!folder.is_available && (
+                                                            <span className="text-[9px] uppercase tracking-wider text-amber-300/70">
+                                                                Drive unavailable — reconnect it, then refresh
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 <button
                                                     onClick={() => removeFolder(folder.path)}

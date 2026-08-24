@@ -102,6 +102,17 @@ const normalizeFilters = (value: unknown): FilterOptions => {
     };
 };
 
+const parseFolderPaths = (serialized: string): string[] => {
+    try {
+        const parsed: unknown = JSON.parse(serialized);
+        return Array.isArray(parsed)
+            ? parsed.filter((path): path is string => typeof path === 'string')
+            : [];
+    } catch {
+        return [];
+    }
+};
+
 const serializePreferences = (state: AppState) => JSON.stringify({
     version: 1,
     columns: state.columns,
@@ -236,7 +247,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             set({ folderPaths: folders });
 
             // Register directories in scope for asset protocol persistence
-            const activePaths = folders.map(f => f.path);
+            const activePaths = folders.filter(f => f.is_available).map(f => f.path);
             if (activePaths.length > 0) {
                 await invoke('allow_directories', { paths: activePaths });
             }
@@ -337,18 +348,27 @@ export const useAppStore = create<AppState>((set, get) => ({
         const offset = reset ? 0 : get().mediaItems.length;
         const { activeFeedId, feeds, folderPaths, filters } = get();
         let queryFilters = { ...filters };
+        const availableFolders = folderPaths.filter(folder => folder.is_available);
+        const availablePathKeys = new Set(
+            availableFolders.map(folder => folder.path.replace(/\\/g, '/').toLocaleLowerCase())
+        );
 
         if (activeFeedId === 'favorites') {
             queryFilters.favorites_only = true;
+            queryFilters.folder_paths = availableFolders.map(folder => folder.path);
         } else if (activeFeedId !== 'home') {
             const feed = feeds.find(f => f.id === activeFeedId);
             if (feed) {
-                const feedFolders = JSON.parse(feed.folder_paths);
-                queryFilters.folder_paths = feedFolders;
+                const feedFolders = parseFolderPaths(feed.folder_paths);
+                queryFilters.folder_paths = feedFolders.filter(path =>
+                    availablePathKeys.has(path.replace(/\\/g, '/').toLocaleLowerCase())
+                );
+            } else {
+                queryFilters.folder_paths = [];
             }
         } else {
             // Home feed
-            queryFilters.folder_paths = folderPaths.filter(f => f.is_active).map(f => f.path);
+            queryFilters.folder_paths = availableFolders.filter(f => f.is_active).map(f => f.path);
         }
 
         try {
