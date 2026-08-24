@@ -1,52 +1,70 @@
 mod db;
 mod scanner;
+mod storage;
 
-use tauri::{AppHandle, Manager};
+use std::path::Path;
+use tauri::{AppHandle, Emitter, Manager};
+use tauri_plugin_window_state::{Builder as WindowStateBuilder, StateFlags};
 
-fn normalize_path(path: &str) -> String {
-    // Basic normalization: replace backslashes and trim whitespace
-    let mut normalized = path.replace('\\', "/").trim().to_string();
+fn reconcile_registered_folders(conn: &mut rusqlite::Connection) -> Result<usize, String> {
+    let roots = storage::mounted_volume_roots();
+    let folders = db::changes::get_folder_records(conn).map_err(|error| error.to_string())?;
+    let mut relocated = 0;
 
-    // Strip UNC prefix which can break webview protocols
-    if normalized.starts_with("//?/") {
-        normalized = normalized[4..].to_string();
+    for folder in folders {
+        if storage::folder_is_available(&folder.path) {
+            let location = storage::describe_folder(&folder.path, &roots);
+            if location.volume_id != folder.volume_id
+                || location.relative_path != folder.relative_path
+            {
+                db::changes::update_folder_location(conn, folder.id, &location)
+                    .map_err(|error| error.to_string())?;
+            }
+            continue;
+        }
+
+        if let Some((new_path, location)) = storage::resolve_relocated_folder(
+            &folder.path,
+            folder.volume_id.as_deref(),
+            folder.relative_path.as_deref(),
+            &roots,
+            storage::folder_is_available,
+        ) {
+            db::changes::relocate_folder(conn, folder.id, &folder.path, &new_path, &location)
+                .map_err(|error| error.to_string())?;
+            relocated += 1;
+        }
     }
 
-    // Ensure Windows drive letter is consistent (e.g., C:/ instead of c:/)
-    // convertFileSrc often returns capitalized drive letters on Windows
-    if normalized.len() > 2 && normalized.chars().nth(1) == Some(':') {
-        let drive = normalized
-            .chars()
-            .next()
-            .unwrap()
-            .to_uppercase()
-            .next()
-            .unwrap();
-        normalized = format!("{}:{}", drive, &normalized[2..]);
-    }
-
-    normalized
+    Ok(relocated)
 }
 
 #[tauri::command]
 async fn scan_folder(app: AppHandle, path: String, recursive: bool) -> Result<usize, String> {
     let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let db_path = app_dir.join("xcroller.db");
-    
-    // Normalize path first
-    let path = normalize_path(&path);
 
-    // 1. Add to folders table
+    let path = storage::normalize_path(&path);
+    if !Path::new(&path).is_dir() {
+        return Err(format!("The media folder is unavailable: {path}"));
+    }
+
     {
-        let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
-        db::changes::add_folder(&conn, &path).map_err(|e| e.to_string())?;
+        let mut conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
+        db::migrate_schema(&conn).map_err(|e| e.to_string())?;
+        reconcile_registered_folders(&mut conn)?;
+        let roots = storage::mounted_volume_roots();
+        let location = storage::describe_folder(&path, &roots);
+        db::changes::add_or_relocate_folder(&mut conn, &path, &location)
+            .map_err(|e| e.to_string())?;
     }
 
     // 2. Run scan
-    let count =
-        tauri::async_runtime::spawn_blocking(move || scanner::scan_directory(&path, &db_path, recursive))
-            .await
-            .map_err(|e| e.to_string())??;
+    let count = tauri::async_runtime::spawn_blocking(move || {
+        scanner::scan_directory(&path, &db_path, recursive)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
 
     Ok(count)
 }
@@ -55,7 +73,9 @@ async fn scan_folder(app: AppHandle, path: String, recursive: bool) -> Result<us
 fn get_folders(app: AppHandle) -> Result<Vec<db::Folder>, String> {
     let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let db_path = app_dir.join("xcroller.db");
-    let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
+    let mut conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
+    db::migrate_schema(&conn).map_err(|e| e.to_string())?;
+    reconcile_registered_folders(&mut conn)?;
     db::changes::get_folders(&conn).map_err(|e: rusqlite::Error| e.to_string())
 }
 
@@ -63,10 +83,10 @@ fn get_folders(app: AppHandle) -> Result<Vec<db::Folder>, String> {
 fn remove_folder(app: AppHandle, path: String) -> Result<(), String> {
     let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let db_path = app_dir.join("xcroller.db");
-    let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
-    
-    let path = normalize_path(&path);
-    db::changes::remove_folder(&conn, &path).map_err(|e| e.to_string())
+    let mut conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
+
+    let path = storage::normalize_path(&path);
+    db::changes::remove_folder(&mut conn, &path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -123,6 +143,22 @@ fn delete_feed(app: AppHandle, id: i64) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn get_app_preferences(app: AppHandle) -> Result<Option<String>, String> {
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let db_path = app_dir.join("xcroller.db");
+    let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
+    db::changes::get_app_preferences(&conn).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn save_app_preferences(app: AppHandle, preferences: String) -> Result<(), String> {
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let db_path = app_dir.join("xcroller.db");
+    let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
+    db::changes::save_app_preferences(&conn, &preferences).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn update_media_dimensions(app: AppHandle, id: i64, width: i32, height: i32) -> Result<(), String> {
     let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let db_path = app_dir.join("xcroller.db");
@@ -131,13 +167,29 @@ fn update_media_dimensions(app: AppHandle, id: i64, width: i32, height: i32) -> 
 }
 
 #[tauri::command]
+fn update_media_metadata(
+    app: AppHandle,
+    id: i64,
+    width: Option<i32>,
+    height: Option<i32>,
+    duration_sec: Option<f64>,
+) -> Result<(), String> {
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let db_path = app_dir.join("xcroller.db");
+    let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
+    db::changes::update_media_metadata(&conn, id, width, height, duration_sec)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn allow_directories(app: AppHandle, paths: Vec<String>) -> Result<(), String> {
     use tauri_plugin_fs::FsExt;
     for path in paths {
-        let normalized = normalize_path(&path);
-        app.fs_scope()
-            .allow_directory(&normalized, true)
-            .map_err(|e| e.to_string())?;
+        let normalized = storage::normalize_path(&path);
+        if !storage::folder_is_available(&normalized) {
+            continue;
+        }
+        let _ = app.fs_scope().allow_directory(&normalized, true);
         // Also allow the original just in case
         if normalized != path {
             let _ = app.fs_scope().allow_directory(&path, true);
@@ -187,6 +239,11 @@ async fn export_starred(app: AppHandle, target_path: String) -> Result<usize, St
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(
+            WindowStateBuilder::default()
+                .with_state_flags(StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED)
+                .build(),
+        )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -200,21 +257,28 @@ pub fn run() {
             let db_path = app_dir.join("xcroller.db");
 
             // Init DB
-            let conn = rusqlite::Connection::open(&db_path).expect("failed to open db");
+            let mut conn = rusqlite::Connection::open(&db_path).expect("failed to open db");
             conn.execute(db::SCHEMA_MEDIA, [])
                 .expect("failed to create media table");
             conn.execute(db::SCHEMA_FOLDERS, [])
                 .expect("failed to create folders table");
             conn.execute(db::SCHEMA_FEEDS, [])
                 .expect("failed to create feeds table");
-            conn.execute(db::SCHEMA_INDICES, [])
+            conn.execute(db::SCHEMA_SETTINGS, [])
+                .expect("failed to create settings table");
+            conn.execute_batch(db::SCHEMA_INDICES)
                 .expect("failed to create indices");
+            db::migrate_schema(&conn).expect("failed to migrate database schema");
+            let _ = reconcile_registered_folders(&mut conn);
 
             // Allow existing folders in fs scope for asset protocol
             if let Ok(folders) = db::changes::get_folders(&conn) {
                 use tauri_plugin_fs::FsExt;
                 for folder in folders {
-                    let normalized = normalize_path(&folder.path);
+                    if !folder.is_available {
+                        continue;
+                    }
+                    let normalized = storage::normalize_path(&folder.path);
                     let _ = app.fs_scope().allow_directory(&normalized, true);
                     if normalized != folder.path {
                         let _ = app.fs_scope().allow_directory(&folder.path, true);
@@ -224,8 +288,11 @@ pub fn run() {
 
             // Backfill missing metadata in background
             let db_path_clone = db_path.clone();
-            tauri::async_runtime::spawn(async move {
-                let _ = scanner::backfill_metadata(&db_path_clone);
+            let app_handle = app.handle().clone();
+            let _metadata_task = tauri::async_runtime::spawn_blocking(move || {
+                if scanner::backfill_metadata(&db_path_clone).is_ok() {
+                    let _ = app_handle.emit("metadata-backfill-complete", ());
+                }
             });
 
             Ok(())
@@ -239,9 +306,12 @@ pub fn run() {
             clear_favorites,
             export_starred,
             update_media_dimensions,
+            update_media_metadata,
             get_feeds,
             save_feed,
             delete_feed,
+            get_app_preferences,
+            save_app_preferences,
             allow_directories
         ])
         .run(tauri::generate_context!())

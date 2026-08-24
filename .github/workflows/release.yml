@@ -38,39 +38,32 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: app-v__VERSION__ 
+          tagName: v__VERSION__
           releaseName: 'Xcroller v__VERSION__'
           releaseBody: |
-            ## Xcroller v0.2.0 - The Favorites & Quality of Life Update ✨
+            ## Xcroller v0.2.0
 
-            This major update transforms Xcroller into a fully-fledged media curator. We've introduced a robust Favorites system, advanced media handling, and significant UX polish.
+            This release focuses on smoother large media libraries, dependable video previews, and a more polished desktop experience.
 
-            ### ⭐ Favorites & Curation
-            - **Global Starring**: Toggle favorites from the main grid or the immersive viewer using the new Star icon or the `F` hotkey.
-            - **Dedicated Favorites Feed**: Instantly access your curated collection via the new "Favorites" tab in the feed switcher.
-            - **Export to Folder**: One-click export that copies all favorited media to a directory of your choice—perfect for organizing your best content.
-            - **Clear All**: Reset your favorites with a single, safe confirmation dialog.
+            ### Performance and video
+            - Virtualized masonry rendering keeps long image and video feeds responsive.
+            - Configurable video previews allow 1–5 nearby videos per column, with a balanced default of 3.
+            - Cached thumbnails, bounded media loading, and faster hover previews reduce decoder pressure and buffering.
+            - Video duration filters support precise minimum and maximum lengths.
+            - The fullscreen player now supports sub-second seeking.
 
-            ### 🖼️ Enhanced Media Viewer
-            - **Precision Zoom & Pan**: Deep-dive into high-resolution images. Features logic that follows your mouse movements for a fluid inspection experience.
-            - **Smart Video Handling**: Persistent volume controls and an intuitive seek bar that stay out of the way during playback.
-            - **Instant Metadata**: View file paths, dimensions, and types directly in the viewer overlay.
+            ### Personalization and persistence
+            - Settings, filters, active feed, volume, columns, themes, and preview density persist across restarts.
+            - New dark and light themes, live accent colors, and refreshed Xcroller branding.
+            - Paused auto-scroll controls use a high-contrast white and black treatment in both themes.
 
-            ### 🚀 Navigation & Performance
-            - **Recursive Scanning**: Now you can toggle recursion for folders, allowing you to index nested directories with one click.
-            - **Advanced Sorting**: Added support for **Filename (Path) Sorting**, alongside existing date and size filters.
-            - **Fluid Autoscroll**: Refined mouse-hover logic that smoothly pauses scrolling without jarring movements.
-            - **High-Speed Indexing**: Optimized SQLite indices (idx_media_starred, idx_media_type) for lightning-fast feed switching.
+            ### Library and navigation reliability
+            - Responsive custom-view navigation remains usable with many saved views and narrow windows.
+            - Window size/maximized state is restored on launch.
+            - Media libraries recover more safely when an external drive changes letter.
+            - Folder scanning and refresh actions now show visible progress.
 
-            ### 🔧 UX/UI Improvements
-            - **Escape Key Integration**: The `Esc` key now intelligently closes the media viewer AND exits application fullscreen mode in one go.
-            - **Glassmorphism UI**: Refined toolbar and sidebar with improved blur effects and better visual hierarchy.
-            - **Responsive Grid**: Grid column controls now range from 1 to 15, adapting to any screen size.
-
-            ### 📦 Assets
-            Download the appropriate installer for your OS below. For Windows users, the `.msi` is the recommended path for a smooth installation.
-
-            ---
-            *Built with the power of Tauri & Rust. Experience your media like never before.*
+            ### Downloads
+            Windows users can install Xcroller with the `.exe` setup file or the `.msi` package attached below.
           releaseDraft: false
           prerelease: false

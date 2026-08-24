@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useAppStore } from '../lib/store';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Minus, Plus, Grid3X3, FolderPlus, Play, Pause, Settings, Volume2, Maximize, Minimize, Filter, RefreshCcw, Star, Download, Trash2 } from 'lucide-react';
+import { Minus, Plus, Grid3X3, FolderPlus, Play, Pause, Settings, Volume2, Maximize, Minimize, Filter, RefreshCcw, Download, Trash2 } from 'lucide-react';
 import { open, message, ask } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { SettingsModal } from './SettingsModal';
 import { FilterSidebar } from './FilterSidebar';
+import { FeedSwitcher } from './FeedSwitcher';
+import { useShallow } from 'zustand/react/shallow';
 
 export function Toolbar() {
     const {
@@ -24,11 +26,31 @@ export function Toolbar() {
         feeds,
         activeFeedId,
         setActiveFeed,
-        fetchMedia,
-        loadFolders,
+        preferencesLoaded,
+        activity,
+        refreshLibrary,
         exportFavorites,
         clearFavorites
-    } = useAppStore();
+    } = useAppStore(useShallow((state) => ({
+        columns: state.columns,
+        setColumns: state.setColumns,
+        addFolder: state.addFolder,
+        isAutoScrolling: state.isAutoScrolling,
+        toggleAutoScroll: state.toggleAutoScroll,
+        isHoverPaused: state.isHoverPaused,
+        hoverVolume: state.hoverVolume,
+        setHoverVolume: state.setHoverVolume,
+        isFullscreen: state.isFullscreen,
+        setIsFullscreen: state.setIsFullscreen,
+        feeds: state.feeds,
+        activeFeedId: state.activeFeedId,
+        setActiveFeed: state.setActiveFeed,
+        preferencesLoaded: state.preferencesLoaded,
+        activity: state.activity,
+        refreshLibrary: state.refreshLibrary,
+        exportFavorites: state.exportFavorites,
+        clearFavorites: state.clearFavorites
+    })));
     const [isVisible, setIsVisible] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -107,7 +129,8 @@ export function Toolbar() {
 
     // Show when mouse is near top
     const handleMouseMove = (e: MouseEvent) => {
-        if (e.clientY < 60) {
+        const revealZone = window.innerWidth <= 1180 ? 120 : 60;
+        if (e.clientY < revealZone) {
             setIsVisible(true);
         }
     };
@@ -160,73 +183,57 @@ export function Toolbar() {
 
     return (
         <>
-            <AnimatePresence>
+            <AnimatePresence initial={false}>
                 {(isVisible && !isAutoScrolling) && (
                     <motion.div
                         data-tauri-drag-region
-                        initial={{ y: -100 }}
+                        initial={{ y: '-100%' }}
                         animate={{ y: 0 }}
-                        exit={{ y: -100 }}
+                        exit={{ y: '-100%' }}
                         transition={{ duration: 0.3, ease: 'easeInOut' }}
-                        className="fixed top-0 left-0 right-0 h-16 bg-xcroller-base/95 backdrop-blur-xl border-b border-white/5 z-[60] flex items-center px-6 justify-between shadow-2xl"
+                        className="xcroller-toolbar theme-surface-context fixed top-0 left-0 right-0 bg-xcroller-base/95 backdrop-blur-xl border-b border-white/5 z-[60] shadow-2xl"
                     >
-                        <div className="flex items-center gap-4">
+                        <div className="xcroller-toolbar__leading flex items-center gap-4">
                             <button
                                 onClick={handleAddFolder}
-                                className="p-2 hover:bg-white/5 rounded-full transition-all text-xcroller-text/80 hover:text-white"
+                                disabled={activity !== null}
+                                aria-label="Add folder"
+                                className="p-2 hover:bg-white/5 rounded-full transition-colors text-xcroller-text/80 hover:text-white disabled:cursor-wait disabled:opacity-40"
                                 title="Add Folder"
                             >
                                 <FolderPlus size={20} />
                             </button>
 
                             <button
-                                onClick={async () => {
-                                    await loadFolders();
-                                    await fetchMedia(true);
-                                }}
-                                className="p-2 hover:bg-white/5 rounded-full transition-all text-xcroller-text/80 hover:text-white"
+                                onClick={() => void refreshLibrary()}
+                                disabled={activity !== null}
+                                aria-label="Refresh media"
+                                aria-busy={activity?.message.includes('Refreshing') || activity?.message.includes('latest media')}
+                                className="p-2 hover:bg-white/5 rounded-full transition-colors text-xcroller-text/80 hover:text-white disabled:cursor-wait disabled:opacity-40"
                                 title="Refresh Media"
                             >
-                                <RefreshCcw size={20} />
+                                <RefreshCcw
+                                    size={20}
+                                    className={activity?.message.includes('Refreshing') || activity?.message.includes('latest media') ? 'motion-safe:animate-spin' : ''}
+                                />
                             </button>
                         </div>
 
-                        {/* Feed Switcher */}
-                        <div className="flex items-center gap-1 bg-black/20 p-1 rounded-xl border border-white/5 max-w-md overflow-x-auto no-scrollbar">
-                            <button
-                                onClick={() => setActiveFeed('home')}
-                                className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${activeFeedId === 'home' ? 'bg-xcroller-red text-white shadow-lg' : 'text-xcroller-muted hover:text-white hover:bg-white/5'
-                                    }`}
-                            >
-                                HOME FEED
-                            </button>
-                            <button
-                                onClick={() => setActiveFeed('favorites')}
-                                className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-1 ${activeFeedId === 'favorites' ? 'bg-xcroller-red text-white shadow-lg' : 'text-xcroller-muted hover:text-white hover:bg-white/5'
-                                    }`}
-                            >
-                                <Star size={12} className={activeFeedId === 'favorites' ? 'fill-current' : ''} />
-                                FAVORITES
-                            </button>
-                            {feeds.map(feed => (
-                                <button
-                                    key={feed.id}
-                                    onClick={() => setActiveFeed(feed.id!)}
-                                    className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${activeFeedId === feed.id ? 'bg-xcroller-red text-white shadow-lg' : 'text-xcroller-muted hover:text-white hover:bg-white/5'
-                                        }`}
-                                >
-                                    {feed.name}
-                                </button>
-                            ))}
-                        </div>
+                        <FeedSwitcher
+                            feeds={feeds}
+                            activeFeedId={activeFeedId}
+                            setActiveFeed={setActiveFeed}
+                            className="xcroller-toolbar__feeds w-full max-w-3xl justify-self-center"
+                        />
 
-                        {/* Favorites Actions */}
-                        <div className="flex items-center">
+                        <div className="xcroller-toolbar__actions flex min-w-0 items-center gap-6">
+                            {/* Favorites Actions */}
                             {activeFeedId === 'favorites' && (
-                                <div className="flex items-center gap-2 bg-xcroller-red/20 border border-xcroller-red/30 rounded-full px-2 py-1 mr-4">
+                                <div className="xcroller-toolbar__favorite-actions flex items-center gap-2 bg-xcroller-red/20 border border-xcroller-red/30 rounded-full px-2 py-1">
                                     <button
                                         onClick={handleExportFavorites}
-                                        className="p-1.5 hover:bg-xcroller-red hover:text-white rounded-full transition-all text-xcroller-red"
+                                        aria-label="Export favorites"
+                                        className="p-1.5 hover:bg-xcroller-red hover:text-xcroller-on-accent rounded-full transition-colors text-xcroller-accent-text"
                                         title="Export Favorites"
                                     >
                                         <Download size={16} />
@@ -234,18 +241,17 @@ export function Toolbar() {
                                     <div className="w-px h-4 bg-xcroller-red/30" />
                                     <button
                                         onClick={handleClearFavorites}
-                                        className="p-1.5 hover:bg-xcroller-red hover:text-white rounded-full transition-all text-xcroller-red"
+                                        aria-label="Clear all favorites"
+                                        className="p-1.5 hover:bg-xcroller-red hover:text-xcroller-on-accent rounded-full transition-colors text-xcroller-accent-text"
                                         title="Clear All Favorites"
                                     >
                                         <Trash2 size={16} />
                                     </button>
                                 </div>
                             )}
-                        </div>
 
-                        <div className="flex items-center gap-6">
                             {/* Hover Volume Control */}
-                            <div className="flex items-center gap-3 bg-white/5 rounded-full px-4 py-1.5 border border-white/5 transition-colors hover:bg-white/10 group">
+                            <div className="xcroller-toolbar__volume flex items-center gap-3 bg-white/5 rounded-full px-4 py-1.5 border border-white/5 transition-colors hover:bg-white/10 group">
                                 <Volume2 size={16} className="text-xcroller-muted group-hover:text-white transition-colors" />
                                 <input
                                     type="range"
@@ -260,10 +266,11 @@ export function Toolbar() {
                             </div>
 
                             {/* Grid Controls */}
-                            <div className="flex items-center gap-2 bg-white/5 rounded-full px-3 py-1.5 border border-white/5">
+                            <div className="xcroller-toolbar__grid flex items-center gap-2 bg-white/5 rounded-full px-3 py-1.5 border border-white/5">
                                 <Grid3X3 size={16} className="text-xcroller-muted mr-1 pointer-events-none" />
                                 <button
                                     onClick={() => setColumns(Math.max(1, columns - 1))}
+                                    aria-label="Decrease columns"
                                     className="p-1 hover:text-white text-xcroller-muted transition-colors"
                                 >
                                     <Minus size={14} />
@@ -271,6 +278,7 @@ export function Toolbar() {
                                 <span className="text-sm font-medium w-4 text-center pointer-events-none">{columns}</span>
                                 <button
                                     onClick={() => setColumns(Math.min(15, columns + 1))}
+                                    aria-label="Increase columns"
                                     className="p-1 hover:text-white text-xcroller-muted transition-colors"
                                 >
                                     <Plus size={14} />
@@ -279,8 +287,9 @@ export function Toolbar() {
 
                             <button
                                 onClick={toggleAutoScroll}
-                                className={`p-2.5 rounded-full transition-all shadow-lg relative ${isAutoScrolling
-                                    ? (isHoverPaused ? 'bg-yellow-500 text-black scale-110' : 'bg-xcroller-red text-white scale-110')
+                                aria-label={isAutoScrolling ? 'Stop automatic scrolling' : 'Start automatic scrolling'}
+                                className={`p-2.5 rounded-full transition-[background-color,color,transform] shadow-lg relative ${isAutoScrolling
+                                    ? (isHoverPaused ? 'bg-xcroller-paused-control text-xcroller-on-paused-control scale-110' : 'bg-xcroller-red text-xcroller-on-accent scale-110')
                                     : 'bg-white/5 text-xcroller-text/80 hover:text-white hover:bg-white/10'
                                     }`}
                                 title="Toggle Auto-Scroll (S / Space)"
@@ -288,20 +297,21 @@ export function Toolbar() {
                                 {isAutoScrolling ? (
                                     isHoverPaused ? (
                                         <div className="flex items-center justify-center">
-                                            <Pause size={20} />
-                                            <span className="absolute -bottom-6 text-[10px] font-bold text-yellow-500 uppercase">PAUSED</span>
+                                            <Pause size={20} aria-hidden="true" />
+                                            <span className="absolute -bottom-6 text-[10px] font-bold text-xcroller-text uppercase">PAUSED</span>
                                         </div>
                                     ) : (
-                                        <div className="w-5 h-5 bg-white rounded-sm" />
+                                        <div className="w-5 h-5 bg-white rounded-sm" aria-hidden="true" />
                                     )
                                 ) : (
-                                    <Play size={20} className="ml-0.5" />
+                                    <Play size={20} className="ml-0.5" aria-hidden="true" />
                                 )}
                             </button>
 
                             <button
                                 onClick={() => setIsFilterOpen(true)}
-                                className={`p-2.5 rounded-full transition-all ${isFilterOpen ? 'bg-xcroller-red text-white' : 'bg-white/5 text-xcroller-text/80 hover:text-white hover:bg-white/10'}`}
+                                aria-label="Open filters and sorting"
+                                className={`p-2.5 rounded-full transition-colors ${isFilterOpen ? 'bg-xcroller-red text-xcroller-on-accent' : 'bg-white/5 text-xcroller-text/80 hover:text-white hover:bg-white/10'}`}
                                 title="Filters & Sorting"
                             >
                                 <Filter size={20} />
@@ -309,7 +319,9 @@ export function Toolbar() {
 
                             <button
                                 onClick={handleToggleFullscreen}
-                                className="p-2.5 bg-white/5 rounded-full transition-all text-xcroller-text/80 hover:text-white hover:bg-white/10"
+                                aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                                data-toolbar-fullscreen
+                                className="p-2.5 bg-white/5 rounded-full transition-colors text-xcroller-text/80 hover:text-white hover:bg-white/10"
                                 title="Toggle Fullscreen"
                             >
                                 {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
@@ -317,7 +329,9 @@ export function Toolbar() {
 
                             <button
                                 onClick={() => setIsSettingsOpen(true)}
-                                className="p-2 hover:bg-white/5 rounded-full transition-colors text-xcroller-text/80 hover:text-white"
+                                disabled={!preferencesLoaded}
+                                aria-label="Open settings"
+                                className="p-2 hover:bg-white/5 rounded-full transition-colors text-xcroller-text/80 hover:text-white disabled:cursor-wait disabled:opacity-40"
                             >
                                 <Settings size={20} />
                             </button>
@@ -327,7 +341,7 @@ export function Toolbar() {
             </AnimatePresence>
 
             {/* Minimal Autoscroll UI */}
-            <AnimatePresence>
+            <AnimatePresence initial={false}>
                 {isAutoScrolling && (
                     <motion.div
                         initial={{ opacity: 0, scale: 0.8, y: -20 }}
@@ -337,13 +351,15 @@ export function Toolbar() {
                     >
                         <button
                             onClick={toggleAutoScroll}
-                            className={`w-14 h-14 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.5)] flex items-center justify-center transition-transform hover:scale-105 ${isHoverPaused ? 'bg-yellow-500 text-black' : 'bg-xcroller-red text-white'
+                            aria-label="Stop automatic scrolling"
+                            title={isHoverPaused ? 'Automatic scrolling paused while previewing media' : 'Stop automatic scrolling'}
+                            className={`w-14 h-14 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.5)] flex items-center justify-center transition-[background-color,color,transform] hover:scale-105 active:scale-[0.96] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-xcroller-accent-text ${isHoverPaused ? 'bg-xcroller-paused-control text-xcroller-on-paused-control' : 'bg-xcroller-red text-xcroller-on-accent'
                                 }`}
                         >
                             {isHoverPaused ? (
-                                <Pause size={24} className="fill-current" />
+                                <Pause size={24} className="fill-current" aria-hidden="true" />
                             ) : (
-                                <div className="w-5 h-5 bg-current rounded-sm" />
+                                <div className="w-5 h-5 bg-current rounded-sm" aria-hidden="true" />
                             )}
                         </button>
                     </motion.div>

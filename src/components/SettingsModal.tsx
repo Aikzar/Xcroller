@@ -1,13 +1,26 @@
-import { X, Trash2, Folder as FolderIcon, Plus, Layout, Check, Settings } from 'lucide-react';
+import { X, Trash2, Folder as FolderIcon, Plus, Layout, Check, Settings, Palette, Pipette, Moon, Sun, TriangleAlert } from 'lucide-react';
 import { useAppStore } from '../lib/store';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Feed } from '../lib/types';
+import { useShallow } from 'zustand/react/shallow';
+import { ACCENT_PRESETS, foregroundForAccent } from '../lib/theme';
 
 interface SettingsModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
+
+const parseFeedFolderPaths = (serialized: string): string[] => {
+    try {
+        const parsed: unknown = JSON.parse(serialized);
+        return Array.isArray(parsed)
+            ? parsed.filter((path): path is string => typeof path === 'string')
+            : [];
+    } catch {
+        return [];
+    }
+};
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     const {
@@ -15,16 +28,86 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         removeFolder,
         autoScrollSpeed,
         setAutoScrollSpeed,
+        videoPreviewsPerColumn,
+        setVideoPreviewsPerColumn,
         feeds,
         saveFeed,
         deleteFeed,
-        filters
-    } = useAppStore();
+        filters,
+        includeSubdirectories,
+        setIncludeSubdirectories,
+        accentColor,
+        setAccentColor,
+        appearanceTheme,
+        setAppearanceTheme,
+        activity
+    } = useAppStore(useShallow((state) => ({
+        folderPaths: state.folderPaths,
+        removeFolder: state.removeFolder,
+        autoScrollSpeed: state.autoScrollSpeed,
+        setAutoScrollSpeed: state.setAutoScrollSpeed,
+        videoPreviewsPerColumn: state.videoPreviewsPerColumn,
+        setVideoPreviewsPerColumn: state.setVideoPreviewsPerColumn,
+        feeds: state.feeds,
+        saveFeed: state.saveFeed,
+        deleteFeed: state.deleteFeed,
+        filters: state.filters,
+        includeSubdirectories: state.includeSubdirectories,
+        setIncludeSubdirectories: state.setIncludeSubdirectories,
+        accentColor: state.accentColor,
+        setAccentColor: state.setAccentColor,
+        appearanceTheme: state.appearanceTheme,
+        setAppearanceTheme: state.setAppearanceTheme,
+        activity: state.activity
+    })));
 
     const [isCreatingFeed, setIsCreatingFeed] = useState(false);
     const [editingFeedId, setEditingFeedId] = useState<number | null>(null);
     const [newFeedName, setNewFeedName] = useState('');
     const [selectedFolders, setSelectedFolders] = useState<string[]>([]);
+    const dialogRef = useRef<HTMLDivElement>(null);
+    const closeButtonRef = useRef<HTMLButtonElement>(null);
+    const onCloseRef = useRef(onClose);
+    onCloseRef.current = onClose;
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const previouslyFocused = document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null;
+        const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                onCloseRef.current();
+                return;
+            }
+            if (event.key !== 'Tab' || !dialogRef.current) return;
+
+            const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
+                'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+            )).filter(element => element.offsetParent !== null);
+            if (focusable.length === 0) return;
+
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            window.cancelAnimationFrame(focusFrame);
+            document.removeEventListener('keydown', handleKeyDown);
+            previouslyFocused?.focus();
+        };
+    }, [isOpen]);
 
     const handleCreateOrUpdateFeed = async () => {
         if (!newFeedName || selectedFolders.length === 0) return;
@@ -51,7 +134,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     const startEditing = (feed: Feed) => {
         setEditingFeedId(feed.id!);
         setNewFeedName(feed.name);
-        setSelectedFolders(JSON.parse(feed.folder_paths));
+        setSelectedFolders(parseFeedFolderPaths(feed.folder_paths));
         setIsCreatingFeed(true);
     };
 
@@ -62,10 +145,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     };
 
     return (
-        <AnimatePresence>
+        <AnimatePresence initial={false}>
             {isOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="theme-surface-context fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <motion.div
+                        ref={dialogRef}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="settings-title"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
@@ -81,8 +168,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     >
                         {/* Header */}
                         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/5 shrink-0">
-                            <h2 className="text-lg font-semibold text-white">Settings</h2>
-                            <button onClick={onClose} className="p-1 hover:bg-white/10 rounded-full transition-colors">
+                            <h2 id="settings-title" className="text-lg font-semibold text-white">Settings</h2>
+                            <button
+                                ref={closeButtonRef}
+                                type="button"
+                                onClick={onClose}
+                                aria-label="Close settings"
+                                className="p-2.5 hover:bg-white/10 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                            >
                                 <X size={20} className="text-white/70" />
                             </button>
                         </div>
@@ -99,7 +192,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                             if (isCreatingFeed) resetFeedForm();
                                             else setIsCreatingFeed(true);
                                         }}
-                                        className="text-xs flex items-center gap-1.5 text-xcroller-red hover:underline font-bold"
+                                        className="text-xs flex items-center gap-1.5 text-xcroller-accent-text hover:underline font-bold"
                                     >
                                         <Plus size={14} /> {isCreatingFeed ? 'DISCARD' : 'NEW FEED'}
                                     </button>
@@ -117,7 +210,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                                 <div>
                                                     <div className="flex items-center justify-between mb-1">
                                                         <label className="text-[10px] text-xcroller-muted uppercase block ml-1">{editingFeedId ? 'Edit Feed Name' : 'New Feed Name'}</label>
-                                                        {editingFeedId && <span className="text-[10px] text-xcroller-red font-bold uppercase">Editing Mode</span>}
+                                                        {editingFeedId && <span className="text-[10px] text-xcroller-accent-text font-bold uppercase">Editing Mode</span>}
                                                     </div>
                                                     <input
                                                         type="text"
@@ -133,12 +226,17 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                                         {folderPaths.map(f => (
                                                             <button
                                                                 key={f.id}
+                                                                type="button"
                                                                 onClick={() => toggleFolderSelection(f.path)}
-                                                                className={`w-full flex items-center justify-between p-2 rounded-lg text-xs transition-colors ${selectedFolders.includes(f.path) ? 'bg-xcroller-red/20 border border-xcroller-red/40 text-white' : 'bg-black/20 border border-white/5 text-white/60 hover:bg-black/40'
+                                                                disabled={!f.is_available}
+                                                                title={f.is_available ? f.path : `${f.path} — drive unavailable`}
+                                                                className={`w-full flex items-center justify-between gap-2 p-2 rounded-lg text-xs transition-colors disabled:cursor-not-allowed ${selectedFolders.includes(f.path) ? 'bg-xcroller-red/20 border border-xcroller-red/40 text-white' : 'bg-black/20 border border-white/5 text-white/60 hover:bg-black/40'
+                                                                    } ${!f.is_available ? 'opacity-50' : ''
                                                                     }`}
                                                             >
                                                                 <span className="truncate flex-1 text-left">{f.path}</span>
-                                                                {selectedFolders.includes(f.path) && <Check size={14} className="text-xcroller-red" />}
+                                                                {!f.is_available && <span className="shrink-0 text-[9px] uppercase tracking-wide">Unavailable</span>}
+                                                                {selectedFolders.includes(f.path) && <Check size={14} className="text-xcroller-accent-text" />}
                                                             </button>
                                                         ))}
                                                     </div>
@@ -146,14 +244,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                                 <div className="flex gap-2">
                                                     <button
                                                         onClick={resetFeedForm}
-                                                        className="flex-1 py-2.5 bg-white/5 text-white text-sm font-bold rounded-lg transition-all hover:bg-white/10"
+                                                        className="flex-1 py-2.5 bg-white/5 text-white text-sm font-bold rounded-lg transition-colors hover:bg-white/10"
                                                     >
                                                         CANCEL
                                                     </button>
                                                     <button
                                                         onClick={handleCreateOrUpdateFeed}
                                                         disabled={!newFeedName || selectedFolders.length === 0}
-                                                        className="flex-[2] py-2.5 bg-xcroller-red text-white text-sm font-bold rounded-lg shadow-lg disabled:opacity-50 disabled:grayscale transition-all hover:scale-[1.02] active:scale-[0.98]"
+                                                        className="flex-[2] py-2.5 bg-xcroller-red text-xcroller-on-accent text-sm font-bold rounded-lg shadow-lg disabled:opacity-50 disabled:grayscale transition-transform hover:scale-[1.02] active:scale-[0.96]"
                                                     >
                                                         {editingFeedId ? 'UPDATE FEED' : 'SAVE PRESET FEED'}
                                                     </button>
@@ -170,13 +268,13 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                         </div>
                                     ) : (
                                         feeds.map((feed) => (
-                                            <div key={feed.id} className="flex items-center justify-between p-3 bg-black/20 rounded-xl hover:bg-black/30 transition-all border border-white/5 group relative">
+                                            <div key={feed.id} className="flex items-center justify-between p-3 bg-black/20 rounded-xl hover:bg-black/30 transition-colors border border-white/5 group relative">
                                                 <div className="flex items-center gap-3 overflow-hidden">
-                                                    <Layout size={16} className="text-xcroller-red" />
+                                                    <Layout size={16} className="text-xcroller-accent-text" />
                                                     <div className="flex flex-col overflow-hidden text-left">
                                                         <span className="text-sm font-bold text-white uppercase tracking-tight">{feed.name}</span>
                                                         <span className="text-[10px] text-xcroller-muted truncate">
-                                                            {JSON.parse(feed.folder_paths).length} folders included
+                                                            {parseFeedFolderPaths(feed.folder_paths).length} folders included
                                                         </span>
                                                     </div>
                                                 </div>
@@ -210,13 +308,21 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                         <div className="text-sm text-xcroller-muted italic py-2">No folders added yet.</div>
                                     ) : (
                                         folderPaths.map((folder) => (
-                                            <div key={folder.id} className="flex items-center justify-between p-3 bg-black/20 rounded-xl hover:bg-black/30 transition-colors group border border-white/5">
+                                            <div key={folder.id} className={`flex items-center justify-between p-3 bg-black/20 rounded-xl hover:bg-black/30 transition-colors group border ${folder.is_available ? 'border-white/5' : 'border-amber-400/20'}`}>
                                                 <div className="flex items-center gap-3 overflow-hidden">
-                                                    <FolderIcon size={16} className="text-xcroller-muted group-hover:text-xcroller-red transition-colors shrink-0" />
-                                                    <span className="text-sm text-white/90 truncate font-mono text-[11px]" title={folder.path}>{folder.path}</span>
+                                                    <FolderIcon size={16} className={`${folder.is_available ? 'text-xcroller-muted group-hover:text-xcroller-accent-text' : 'text-amber-300/70'} transition-colors shrink-0`} />
+                                                    <div className="flex min-w-0 flex-col gap-0.5">
+                                                        <span className="text-sm text-white/90 truncate font-mono text-[11px]" title={folder.path}>{folder.path}</span>
+                                                        {!folder.is_available && (
+                                                            <span className="text-[9px] uppercase tracking-wider text-amber-300/70">
+                                                                Drive unavailable — reconnect it, then refresh
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 <button
                                                     onClick={() => removeFolder(folder.path)}
+                                                    disabled={activity !== null}
                                                     className="p-1.5 hover:bg-red-500/20 text-xcroller-muted hover:text-red-400 rounded-md transition-colors opacity-0 group-hover:opacity-100"
                                                     title="Remove Folder"
                                                 >
@@ -228,6 +334,109 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                 </div>
                             </div>
 
+                            {/* Appearance Section */}
+                            <div>
+                                <div className="mb-3 flex items-center gap-2">
+                                    <Palette size={16} className="text-xcroller-accent-text" aria-hidden="true" />
+                                    <h3 className="text-sm font-medium text-xcroller-muted uppercase tracking-wider">Appearance</h3>
+                                </div>
+                                <div className="space-y-4 rounded-xl border border-white/5 bg-black/20 p-4">
+                                    <div>
+                                        <span className="text-sm font-bold text-white/90">Color mode</span>
+                                        <p className="mt-0.5 text-[10px] text-xcroller-muted">
+                                            Dark is the standard appearance. Both modes keep your accent color.
+                                        </p>
+                                    </div>
+
+                                    <div
+                                        role="group"
+                                        aria-label="Application color mode"
+                                        className="grid grid-cols-2 gap-1 rounded-xl bg-black/40 p-1"
+                                    >
+                                        {([
+                                            { id: 'dark' as const, label: 'Dark', Icon: Moon },
+                                            { id: 'light' as const, label: 'Light', Icon: Sun }
+                                        ]).map(({ id, label, Icon }) => {
+                                            const isSelected = appearanceTheme === id;
+                                            return (
+                                                <button
+                                                    key={id}
+                                                    type="button"
+                                                    aria-pressed={isSelected}
+                                                    onClick={() => setAppearanceTheme(id)}
+                                                    className={`flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 text-xs font-bold transition-[background-color,color,transform] active:scale-[0.96] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${isSelected
+                                                        ? 'bg-xcroller-red text-xcroller-on-accent shadow-lg'
+                                                        : 'text-xcroller-muted hover:bg-white/5 hover:text-white'
+                                                        }`}
+                                                >
+                                                    <Icon size={16} strokeWidth={2} aria-hidden="true" />
+                                                    {label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <div className="h-px bg-white/10" aria-hidden="true" />
+
+                                    <div>
+                                        <span className="text-sm font-bold text-white/90">Accent color</span>
+                                        <p className="mt-0.5 text-[10px] text-xcroller-muted">
+                                            Changes controls and highlights. Your choice is saved automatically.
+                                        </p>
+                                    </div>
+
+                                    <div role="group" aria-label="Preset accent colors" className="grid grid-cols-6 gap-2">
+                                        {ACCENT_PRESETS.map((preset) => {
+                                            const isSelected = accentColor === preset.color;
+                                            return (
+                                                <button
+                                                    key={preset.color}
+                                                    type="button"
+                                                    aria-label={`Use ${preset.name} accent (${preset.color})`}
+                                                    aria-pressed={isSelected}
+                                                    title={`${preset.name} — ${preset.color}`}
+                                                    onClick={() => setAccentColor(preset.color)}
+                                                    className="flex size-10 items-center justify-center rounded-lg shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)] transition-transform hover:scale-105 active:scale-[0.96] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                                                    style={{
+                                                        backgroundColor: preset.color,
+                                                        color: foregroundForAccent(preset.color)
+                                                    }}
+                                                >
+                                                    {isSelected && <Check size={17} strokeWidth={2.5} aria-hidden="true" />}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <div className="flex items-center justify-between gap-3 rounded-lg bg-white/5 p-3">
+                                        <div className="flex min-w-0 items-center gap-3">
+                                            <Pipette size={16} className="shrink-0 text-xcroller-accent-text" aria-hidden="true" />
+                                            <div className="min-w-0">
+                                                <label htmlFor="custom-accent-color" className="block text-xs font-bold text-white/90">
+                                                    Custom color
+                                                </label>
+                                                <span id="custom-accent-help" className="block text-[10px] text-xcroller-muted">
+                                                    Opens the Windows color picker
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="flex shrink-0 items-center gap-2">
+                                            <output htmlFor="custom-accent-color" className="font-mono text-[10px] text-white/60">
+                                                {accentColor}
+                                            </output>
+                                            <input
+                                                id="custom-accent-color"
+                                                type="color"
+                                                value={accentColor}
+                                                aria-describedby="custom-accent-help"
+                                                onChange={(event) => setAccentColor(event.target.value)}
+                                                className="h-10 w-12 cursor-pointer rounded-lg border border-white/10 bg-transparent p-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-xcroller-accent-text [&::-webkit-color-swatch]:rounded-md [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             {/* Preferences Section */}
                             <div>
                                 <h3 className="text-sm font-medium text-xcroller-muted uppercase tracking-wider mb-3">System Preferences</h3>
@@ -235,7 +444,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                     <div className="flex flex-col gap-2 p-4 bg-black/20 rounded-xl border border-white/5">
                                         <div className="flex items-center justify-between">
                                             <span className="text-sm text-white/90 font-bold">Autoscroll Pacing</span>
-                                            <span className="text-xs font-mono text-xcroller-red bg-xcroller-red/10 px-2 py-0.5 rounded-full">{autoScrollSpeed.toFixed(1)}x</span>
+                                            <span className="text-xs font-mono text-xcroller-accent-text bg-xcroller-red/10 px-2 py-0.5 rounded-full">{autoScrollSpeed.toFixed(1)}x</span>
                                         </div>
                                         <input
                                             type="range"
@@ -251,6 +460,52 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                             <span>Intense</span>
                                         </div>
                                     </div>
+                                    <div className="flex flex-col gap-3 p-4 bg-black/20 rounded-xl border border-white/5">
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div>
+                                                <label htmlFor="video-previews-per-column" className="block text-sm text-white/90 font-bold">
+                                                    Video previews per column
+                                                </label>
+                                                <p id="video-previews-help" className="mt-0.5 text-[10px] leading-relaxed text-xcroller-muted">
+                                                    Sets how many nearby videos can play in each column while you scroll.
+                                                </p>
+                                            </div>
+                                            <output
+                                                htmlFor="video-previews-per-column"
+                                                className="shrink-0 rounded-full bg-xcroller-red/10 px-2.5 py-0.5 font-mono text-xs text-xcroller-accent-text"
+                                                aria-live="polite"
+                                            >
+                                                {videoPreviewsPerColumn}
+                                            </output>
+                                        </div>
+                                        <input
+                                            id="video-previews-per-column"
+                                            type="range"
+                                            min="1"
+                                            max="5"
+                                            step="1"
+                                            value={videoPreviewsPerColumn}
+                                            aria-valuetext={`${videoPreviewsPerColumn} video ${videoPreviewsPerColumn === 1 ? 'preview' : 'previews'} per column`}
+                                            aria-describedby={`video-previews-help${videoPreviewsPerColumn >= 4 ? ' video-previews-warning' : ''}`}
+                                            onInput={(event) => setVideoPreviewsPerColumn(Number(event.currentTarget.value))}
+                                            className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-white/10 accent-xcroller-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-xcroller-accent-text"
+                                        />
+                                        <div className="flex justify-between px-0.5 text-[10px] font-bold text-xcroller-muted" aria-hidden="true">
+                                            <span>1 · Fastest</span>
+                                            <span>3 · Balanced</span>
+                                            <span>5 · Most motion</span>
+                                        </div>
+                                        {videoPreviewsPerColumn >= 4 && (
+                                            <p
+                                                id="video-previews-warning"
+                                                role="status"
+                                                className="flex items-start gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-xcroller-text"
+                                            >
+                                                <TriangleAlert size={15} className="mt-0.5 shrink-0 text-amber-500" aria-hidden="true" />
+                                                Higher preview counts can make scrolling less smooth, especially when you use many columns.
+                                            </p>
+                                        )}
+                                    </div>
                                     <div className="flex flex-col gap-2 p-4 bg-black/20 rounded-xl border border-white/5">
                                         <div className="flex items-center justify-between">
                                             <div className="flex flex-col">
@@ -258,10 +513,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                                 <span className="text-[10px] text-xcroller-muted">Include subfolders when adding a root folder</span>
                                             </div>
                                             <button
-                                                onClick={() => useAppStore.getState().setIncludeSubdirectories(!useAppStore.getState().includeSubdirectories)}
-                                                className={`w-12 h-6 rounded-full transition-colors relative ${useAppStore.getState().includeSubdirectories ? 'bg-xcroller-red' : 'bg-white/10'}`}
+                                                type="button"
+                                                role="switch"
+                                                aria-checked={includeSubdirectories}
+                                                aria-label="Include subfolders when adding a folder"
+                                                onClick={() => setIncludeSubdirectories(!includeSubdirectories)}
+                                                className={`w-12 h-6 rounded-full transition-colors relative focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${includeSubdirectories ? 'bg-xcroller-red' : 'bg-white/10'}`}
                                             >
-                                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${useAppStore.getState().includeSubdirectories ? 'left-7' : 'left-1'}`} />
+                                                <div className={`absolute top-1 w-4 h-4 rounded-full transition-transform ${includeSubdirectories ? 'left-7 bg-xcroller-on-accent' : 'left-1 bg-white'}`} />
                                             </button>
                                         </div>
                                     </div>
