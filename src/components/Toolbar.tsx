@@ -129,7 +129,8 @@ export function Toolbar() {
 
     // Show when mouse is near top
     const handleMouseMove = (e: MouseEvent) => {
-        if (e.clientY < 60) {
+        const revealZone = window.innerWidth <= 1180 ? 120 : 60;
+        if (e.clientY < revealZone) {
             setIsVisible(true);
         }
     };
@@ -186,9 +187,9 @@ export function Toolbar() {
                 {(isVisible && !isAutoScrolling) && (
                     <motion.div
                         data-tauri-drag-region
-                        initial={{ y: -100 }}
+                        initial={{ y: '-100%' }}
                         animate={{ y: 0 }}
-                        exit={{ y: -100 }}
+                        exit={{ y: '-100%' }}
                         transition={{ duration: 0.3, ease: 'easeInOut' }}
                         className="xcroller-toolbar theme-surface-context fixed top-0 left-0 right-0 bg-xcroller-base/95 backdrop-blur-xl border-b border-white/5 z-[60] shadow-2xl"
                     >
