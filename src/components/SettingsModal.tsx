@@ -1,4 +1,4 @@
-import { X, Trash2, Folder as FolderIcon, Plus, Layout, Check, Settings, Palette, Pipette, Moon, Sun } from 'lucide-react';
+import { X, Trash2, Folder as FolderIcon, Plus, Layout, Check, Settings, Palette, Pipette, Moon, Sun, TriangleAlert } from 'lucide-react';
 import { useAppStore } from '../lib/store';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
@@ -28,6 +28,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         removeFolder,
         autoScrollSpeed,
         setAutoScrollSpeed,
+        videoPreviewsPerColumn,
+        setVideoPreviewsPerColumn,
         feeds,
         saveFeed,
         deleteFeed,
@@ -44,6 +46,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         removeFolder: state.removeFolder,
         autoScrollSpeed: state.autoScrollSpeed,
         setAutoScrollSpeed: state.setAutoScrollSpeed,
+        videoPreviewsPerColumn: state.videoPreviewsPerColumn,
+        setVideoPreviewsPerColumn: state.setVideoPreviewsPerColumn,
         feeds: state.feeds,
         saveFeed: state.saveFeed,
         deleteFeed: state.deleteFeed,
@@ -455,6 +459,52 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                             <span>Mellow</span>
                                             <span>Intense</span>
                                         </div>
+                                    </div>
+                                    <div className="flex flex-col gap-3 p-4 bg-black/20 rounded-xl border border-white/5">
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div>
+                                                <label htmlFor="video-previews-per-column" className="block text-sm text-white/90 font-bold">
+                                                    Video previews per column
+                                                </label>
+                                                <p id="video-previews-help" className="mt-0.5 text-[10px] leading-relaxed text-xcroller-muted">
+                                                    Sets how many nearby videos can play in each column while you scroll.
+                                                </p>
+                                            </div>
+                                            <output
+                                                htmlFor="video-previews-per-column"
+                                                className="shrink-0 rounded-full bg-xcroller-red/10 px-2.5 py-0.5 font-mono text-xs text-xcroller-accent-text"
+                                                aria-live="polite"
+                                            >
+                                                {videoPreviewsPerColumn}
+                                            </output>
+                                        </div>
+                                        <input
+                                            id="video-previews-per-column"
+                                            type="range"
+                                            min="1"
+                                            max="5"
+                                            step="1"
+                                            value={videoPreviewsPerColumn}
+                                            aria-valuetext={`${videoPreviewsPerColumn} video ${videoPreviewsPerColumn === 1 ? 'preview' : 'previews'} per column`}
+                                            aria-describedby={`video-previews-help${videoPreviewsPerColumn >= 4 ? ' video-previews-warning' : ''}`}
+                                            onInput={(event) => setVideoPreviewsPerColumn(Number(event.currentTarget.value))}
+                                            className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-white/10 accent-xcroller-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-xcroller-accent-text"
+                                        />
+                                        <div className="flex justify-between px-0.5 text-[10px] font-bold text-xcroller-muted" aria-hidden="true">
+                                            <span>1 · Fastest</span>
+                                            <span>3 · Balanced</span>
+                                            <span>5 · Most motion</span>
+                                        </div>
+                                        {videoPreviewsPerColumn >= 4 && (
+                                            <p
+                                                id="video-previews-warning"
+                                                role="status"
+                                                className="flex items-start gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-xcroller-text"
+                                            >
+                                                <TriangleAlert size={15} className="mt-0.5 shrink-0 text-amber-500" aria-hidden="true" />
+                                                Higher preview counts can make scrolling less smooth, especially when you use many columns.
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="flex flex-col gap-2 p-4 bg-black/20 rounded-xl border border-white/5">
                                         <div className="flex items-center justify-between">

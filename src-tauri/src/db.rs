@@ -170,7 +170,7 @@ mod tests {
 
         assert_eq!(changes::get_app_preferences(&conn).unwrap(), None);
 
-        let preferences = r#"{"columns":7,"hoverVolume":0.1,"activeFeedId":"favorites"}"#;
+        let preferences = r#"{"version":4,"columns":7,"hoverVolume":0.1,"videoPreviewsPerColumn":5,"activeFeedId":"favorites"}"#;
         changes::save_app_preferences(&conn, preferences).unwrap();
 
         assert_eq!(

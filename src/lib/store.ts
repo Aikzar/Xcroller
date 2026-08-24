@@ -29,6 +29,7 @@ interface AppState {
     isHoverPaused: boolean;
     hoverVolume: number;
     autoScrollSpeed: number;
+    videoPreviewsPerColumn: number;
     includeSubdirectories: boolean;
     accentColor: string;
     appearanceTheme: AppearanceTheme;
@@ -45,6 +46,7 @@ interface AppState {
     setSelectedMediaId: (id: number | null) => void;
     setHoverVolume: (volume: number) => void;
     setAutoScrollSpeed: (speed: number) => void;
+    setVideoPreviewsPerColumn: (count: number) => void;
     setIncludeSubdirectories: (include: boolean) => void;
     setAccentColor: (color: string) => void;
     setAppearanceTheme: (theme: AppearanceTheme) => void;
@@ -140,10 +142,11 @@ const parseFolderPaths = (serialized: string): string[] => {
 };
 
 const serializePreferences = (state: AppState) => JSON.stringify({
-    version: 3,
+    version: 4,
     columns: state.columns,
     hoverVolume: state.hoverVolume,
     autoScrollSpeed: state.autoScrollSpeed,
+    videoPreviewsPerColumn: state.videoPreviewsPerColumn,
     includeSubdirectories: state.includeSubdirectories,
     accentColor: state.accentColor,
     appearanceTheme: state.appearanceTheme,
@@ -187,6 +190,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     isHoverPaused: false,
     hoverVolume: 0.5,
     autoScrollSpeed: 1.0,
+    videoPreviewsPerColumn: 3,
     includeSubdirectories: true,
     accentColor: DEFAULT_ACCENT_COLOR,
     appearanceTheme: getStoredAppearanceTheme(),
@@ -208,6 +212,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     },
     setAutoScrollSpeed: (speed) => {
         set({ autoScrollSpeed: clamp(speed, 0.1, 5) });
+        schedulePreferencesSave(get);
+    },
+    setVideoPreviewsPerColumn: (count) => {
+        set({ videoPreviewsPerColumn: Math.round(clamp(count, 1, 5)) });
         schedulePreferencesSave(get);
     },
     setIncludeSubdirectories: (include) => {
@@ -366,6 +374,9 @@ export const useAppStore = create<AppState>((set, get) => ({
                 autoScrollSpeed: typeof parsed.autoScrollSpeed === 'number'
                     ? clamp(parsed.autoScrollSpeed, 0.1, 5)
                     : get().autoScrollSpeed,
+                videoPreviewsPerColumn: typeof parsed.videoPreviewsPerColumn === 'number'
+                    ? Math.round(clamp(parsed.videoPreviewsPerColumn, 1, 5))
+                    : get().videoPreviewsPerColumn,
                 includeSubdirectories: typeof parsed.includeSubdirectories === 'boolean'
                     ? parsed.includeSubdirectories
                     : get().includeSubdirectories,

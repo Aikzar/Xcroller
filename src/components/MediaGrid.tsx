@@ -10,7 +10,6 @@ const GRID_PADDING = 30;
 const GRID_GAP = 6;
 const RENDER_OVERSCAN = 400;
 const VIDEO_PLAY_OVERSCAN = 100;
-const MAX_ACTIVE_VIDEO_COLUMNS = 8;
 const HOVER_PREVIEW_DELAY_MS = 35;
 const SCROLL_IDLE_DELAY_MS = 120;
 
@@ -26,6 +25,7 @@ export const MediaGrid = () => {
         hasMore,
         isLoading,
         hoverVolume,
+        videoPreviewsPerColumn,
         selectedMediaId
     } = useAppStore(useShallow((state) => ({
         mediaItems: state.mediaItems,
@@ -38,6 +38,7 @@ export const MediaGrid = () => {
         hasMore: state.hasMore,
         isLoading: state.isLoading,
         hoverVolume: state.hoverVolume,
+        videoPreviewsPerColumn: state.videoPreviewsPerColumn,
         selectedMediaId: state.selectedMediaId
     })));
 
@@ -309,17 +310,21 @@ export const MediaGrid = () => {
             }))
             .sort((a, b) => a.distance - b.distance);
 
-        // Keep the video nearest the center playing in each column. This gives
-        // every column motion during manual and automatic scrolling, while
-        // bounding decoder pressure on very dense grids.
-        const closestByColumn = new Map<number, number>();
+        // Keep the configured number of videos nearest the viewport center
+        // playing in each column. This preserves motion during manual and
+        // automatic scrolling while letting the user choose the decoder load.
+        const activeCountByColumn = new Map<number, number>();
+        const activeIds = new Set<number>();
         for (const candidate of candidates) {
-            if (closestByColumn.has(candidate.column)) continue;
-            closestByColumn.set(candidate.column, candidate.id);
-            if (closestByColumn.size >= MAX_ACTIVE_VIDEO_COLUMNS) break;
+            const activeCount = activeCountByColumn.get(candidate.column) ?? 0;
+            if (activeCount >= videoPreviewsPerColumn) continue;
+
+            activeIds.add(candidate.id);
+            activeCountByColumn.set(candidate.column, activeCount + 1);
+            if (activeIds.size >= columns * videoPreviewsPerColumn) break;
         }
 
-        return new Set(closestByColumn.values());
+        return activeIds;
     }, [
         visibleIndices,
         mediaItems,
@@ -329,6 +334,7 @@ export const MediaGrid = () => {
         contentViewportBottom,
         columnWidth,
         columns,
+        videoPreviewsPerColumn,
         selectedMediaId,
     ]);
 
