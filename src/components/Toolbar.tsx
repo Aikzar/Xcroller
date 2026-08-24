@@ -25,6 +25,7 @@ export function Toolbar() {
         feeds,
         activeFeedId,
         setActiveFeed,
+        preferencesLoaded,
         activity,
         refreshLibrary,
         exportFavorites,
@@ -43,6 +44,7 @@ export function Toolbar() {
         feeds: state.feeds,
         activeFeedId: state.activeFeedId,
         setActiveFeed: state.setActiveFeed,
+        preferencesLoaded: state.preferencesLoaded,
         activity: state.activity,
         refreshLibrary: state.refreshLibrary,
         exportFavorites: state.exportFavorites,
@@ -187,7 +189,7 @@ export function Toolbar() {
                         animate={{ y: 0 }}
                         exit={{ y: -100 }}
                         transition={{ duration: 0.3, ease: 'easeInOut' }}
-                        className="fixed top-0 left-0 right-0 h-16 bg-xcroller-base/95 backdrop-blur-xl border-b border-white/5 z-[60] flex items-center px-6 justify-between shadow-2xl"
+                        className="theme-surface-context fixed top-0 left-0 right-0 h-16 bg-xcroller-base/95 backdrop-blur-xl border-b border-white/5 z-[60] flex items-center px-6 justify-between shadow-2xl"
                     >
                         <div className="flex items-center gap-4">
                             <button
@@ -343,8 +345,9 @@ export function Toolbar() {
 
                             <button
                                 onClick={() => setIsSettingsOpen(true)}
+                                disabled={!preferencesLoaded}
                                 aria-label="Open settings"
-                                className="p-2 hover:bg-white/5 rounded-full transition-colors text-xcroller-text/80 hover:text-white"
+                                className="p-2 hover:bg-white/5 rounded-full transition-colors text-xcroller-text/80 hover:text-white disabled:cursor-wait disabled:opacity-40"
                             >
                                 <Settings size={20} />
                             </button>

@@ -384,7 +384,7 @@ export const MediaGrid = () => {
                         transition={{ duration: 0.06 }}
                         className="fixed inset-0 z-[100] pointer-events-none flex items-center justify-center bg-black/60"
                     >
-                        <div className="relative flex items-center justify-center max-h-[80vh] max-w-[80vw] rounded-3xl overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.8)] outline outline-1 outline-white/10 bg-xcroller-surface">
+                        <div className="relative flex items-center justify-center max-h-[80vh] max-w-[80vw] rounded-3xl overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.8)] outline outline-1 outline-white/10 bg-[#0b0b0c]">
                             {hoveredItem.file_type === 'video' ? (
                                 <video
                                     ref={previewVideoRef}

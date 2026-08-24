@@ -30,7 +30,7 @@ export function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
     };
 
     return (
-        <AnimatePresence>
+        <AnimatePresence initial={false}>
             {isOpen && (
                 <>
                     {/* Backdrop */}
@@ -48,7 +48,7 @@ export function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
                         animate={{ x: 0 }}
                         exit={{ x: '100%' }}
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className="fixed top-0 right-0 h-full w-80 bg-xcroller-base border-l border-white/5 z-[80] shadow-2xl flex flex-col"
+                        className="theme-surface-context fixed top-0 right-0 h-full w-80 bg-xcroller-base border-l border-white/5 z-[80] shadow-2xl flex flex-col"
                     >
                         <div className="p-6 border-b border-white/5 flex items-center justify-between">
                             <div className="flex items-center gap-2">

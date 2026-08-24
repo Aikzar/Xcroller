@@ -1,4 +1,8 @@
 export const DEFAULT_ACCENT_COLOR = '#810100';
+export type AppearanceTheme = 'dark' | 'light';
+
+export const DEFAULT_APPEARANCE_THEME: AppearanceTheme = 'dark';
+const APPEARANCE_STORAGE_KEY = 'xcroller.appearance-theme';
 
 export const ACCENT_PRESETS = [
     { name: 'Classic', color: DEFAULT_ACCENT_COLOR },
@@ -18,6 +22,28 @@ type Rgb = [number, number, number];
 
 const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 const DARK_SURFACE: Rgb = [26, 26, 26];
+const LIGHT_SURFACE: Rgb = [255, 250, 247];
+
+export const normalizeAppearanceTheme = (value: unknown): AppearanceTheme | undefined =>
+    value === 'dark' || value === 'light' ? value : undefined;
+
+export const getStoredAppearanceTheme = (): AppearanceTheme => {
+    if (typeof window === 'undefined') return DEFAULT_APPEARANCE_THEME;
+    try {
+        return normalizeAppearanceTheme(window.localStorage.getItem(APPEARANCE_STORAGE_KEY))
+            ?? DEFAULT_APPEARANCE_THEME;
+    } catch {
+        return DEFAULT_APPEARANCE_THEME;
+    }
+};
+
+export const rememberAppearanceTheme = (theme: AppearanceTheme) => {
+    try {
+        window.localStorage.setItem(APPEARANCE_STORAGE_KEY, theme);
+    } catch {
+        // SQLite preferences remain authoritative if WebView storage is unavailable.
+    }
+};
 
 export const normalizeAccentColor = (value: unknown): string | undefined => {
     if (typeof value !== 'string' || !HEX_COLOR_PATTERN.test(value)) return undefined;
@@ -48,16 +74,18 @@ const contrastRatio = (first: Rgb, second: Rgb) => {
     return (lighter + 0.05) / (darker + 0.05);
 };
 
-const mixWithWhite = (color: Rgb, amount: number): Rgb => color.map(channel =>
-    Math.round(channel + ((255 - channel) * amount))
+const mixColor = (color: Rgb, target: Rgb, amount: number): Rgb => color.map((channel, index) =>
+    Math.round(channel + ((target[index] - channel) * amount))
 ) as Rgb;
 
-const readableAccentText = (accent: Rgb): Rgb => {
+const readableAccentText = (accent: Rgb, theme: AppearanceTheme): Rgb => {
+    const surface = theme === 'light' ? LIGHT_SURFACE : DARK_SURFACE;
+    const target: Rgb = theme === 'light' ? [0, 0, 0] : [255, 255, 255];
     for (let amount = 0; amount <= 1; amount += 0.02) {
-        const candidate = mixWithWhite(accent, amount);
-        if (contrastRatio(candidate, DARK_SURFACE) >= 4.5) return candidate;
+        const candidate = mixColor(accent, target, amount);
+        if (contrastRatio(candidate, surface) >= 4.5) return candidate;
     }
-    return [255, 255, 255];
+    return target;
 };
 
 export const foregroundForAccent = (color: string): '#000000' | '#FFFFFF' => {
@@ -67,10 +95,13 @@ export const foregroundForAccent = (color: string): '#000000' | '#FFFFFF' => {
         : '#FFFFFF';
 };
 
-export const applyAccentColor = (color: string) => {
+export const applyAccentColor = (color: string, theme?: AppearanceTheme) => {
     const normalized = normalizeAccentColor(color) ?? DEFAULT_ACCENT_COLOR;
     const accent = hexToRgb(normalized);
-    const accentText = readableAccentText(accent);
+    const activeTheme = theme
+        ?? normalizeAppearanceTheme(document.documentElement.dataset.theme)
+        ?? DEFAULT_APPEARANCE_THEME;
+    const accentText = readableAccentText(accent, activeTheme);
     const onAccent = foregroundForAccent(normalized) === '#000000'
         ? [0, 0, 0]
         : [255, 255, 255];
@@ -79,4 +110,14 @@ export const applyAccentColor = (color: string) => {
     root.style.setProperty('--xcroller-accent-rgb', accent.join(' '));
     root.style.setProperty('--xcroller-accent-text-rgb', accentText.join(' '));
     root.style.setProperty('--xcroller-on-accent-rgb', onAccent.join(' '));
+};
+
+export const applyAppearanceTheme = (
+    theme: AppearanceTheme,
+    accentColor = DEFAULT_ACCENT_COLOR
+) => {
+    const root = document.documentElement;
+    root.dataset.theme = theme;
+    root.style.colorScheme = theme;
+    applyAccentColor(accentColor, theme);
 };

@@ -1,7 +1,16 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
 import { MediaItem, Folder, FilterOptions, Feed } from './types';
-import { applyAccentColor, DEFAULT_ACCENT_COLOR, normalizeAccentColor } from './theme';
+import {
+    AppearanceTheme,
+    applyAccentColor,
+    applyAppearanceTheme,
+    DEFAULT_ACCENT_COLOR,
+    getStoredAppearanceTheme,
+    normalizeAccentColor,
+    normalizeAppearanceTheme,
+    rememberAppearanceTheme
+} from './theme';
 
 interface ActivityStatus {
     id: number;
@@ -22,6 +31,7 @@ interface AppState {
     autoScrollSpeed: number;
     includeSubdirectories: boolean;
     accentColor: string;
+    appearanceTheme: AppearanceTheme;
     isFullscreen: boolean;
     filters: FilterOptions;
     feeds: Feed[];
@@ -37,6 +47,7 @@ interface AppState {
     setAutoScrollSpeed: (speed: number) => void;
     setIncludeSubdirectories: (include: boolean) => void;
     setAccentColor: (color: string) => void;
+    setAppearanceTheme: (theme: AppearanceTheme) => void;
     setIsFullscreen: (status: boolean) => void;
     setFilters: (filters: Partial<FilterOptions>) => void;
     setIsAutoScrolling: (status: boolean) => void;
@@ -129,12 +140,13 @@ const parseFolderPaths = (serialized: string): string[] => {
 };
 
 const serializePreferences = (state: AppState) => JSON.stringify({
-    version: 2,
+    version: 3,
     columns: state.columns,
     hoverVolume: state.hoverVolume,
     autoScrollSpeed: state.autoScrollSpeed,
     includeSubdirectories: state.includeSubdirectories,
     accentColor: state.accentColor,
+    appearanceTheme: state.appearanceTheme,
     activeFeedId: state.activeFeedId,
     filters: state.filters
 });
@@ -177,6 +189,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     autoScrollSpeed: 1.0,
     includeSubdirectories: true,
     accentColor: DEFAULT_ACCENT_COLOR,
+    appearanceTheme: getStoredAppearanceTheme(),
     isFullscreen: false,
     filters: { ...DEFAULT_FILTERS },
     feeds: [],
@@ -204,8 +217,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     setAccentColor: (color) => {
         const normalized = normalizeAccentColor(color);
         if (!normalized) return;
-        applyAccentColor(normalized);
+        applyAccentColor(normalized, get().appearanceTheme);
         set({ accentColor: normalized });
+        schedulePreferencesSave(get);
+    },
+    setAppearanceTheme: (theme) => {
+        const normalized = normalizeAppearanceTheme(theme);
+        if (!normalized) return;
+        applyAppearanceTheme(normalized, get().accentColor);
+        rememberAppearanceTheme(normalized);
+        set({ appearanceTheme: normalized });
         schedulePreferencesSave(get);
     },
     setIsFullscreen: (status) => set({ isFullscreen: status }),
@@ -303,7 +324,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         try {
             const rawPreferences = await invoke<string | null>('get_app_preferences');
             if (!rawPreferences) {
-                applyAccentColor(DEFAULT_ACCENT_COLOR);
+                applyAppearanceTheme(get().appearanceTheme, DEFAULT_ACCENT_COLOR);
                 set({ preferencesLoaded: true });
                 return;
             }
@@ -321,7 +342,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
             let filters = normalizeFilters(parsed.filters);
             const accentColor = normalizeAccentColor(parsed.accentColor) ?? DEFAULT_ACCENT_COLOR;
-            applyAccentColor(accentColor);
+            const appearanceTheme = normalizeAppearanceTheme(parsed.appearanceTheme) ?? 'dark';
+            applyAppearanceTheme(appearanceTheme, accentColor);
+            rememberAppearanceTheme(appearanceTheme);
             if (typeof activeFeedId === 'number') {
                 const feed = feeds.find((candidate) => candidate.id === activeFeedId);
                 if (feed) {
@@ -347,6 +370,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                     ? parsed.includeSubdirectories
                     : get().includeSubdirectories,
                 accentColor,
+                appearanceTheme,
                 activeFeedId,
                 filters,
                 preferencesLoaded: true
@@ -354,7 +378,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             lastSavedPreferences = serializePreferences(get());
         } catch (error) {
             console.error('Failed to load preferences', error);
-            applyAccentColor(DEFAULT_ACCENT_COLOR);
+            applyAppearanceTheme(get().appearanceTheme, DEFAULT_ACCENT_COLOR);
             set({ preferencesLoaded: true });
         }
     },

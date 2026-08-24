@@ -10,6 +10,12 @@
 }
 
 :root {
+  color-scheme: dark;
+  --xcroller-base-rgb: 11 11 12;
+  --xcroller-surface-rgb: 26 26 27;
+  --xcroller-text-rgb: 245 233 226;
+  --xcroller-muted-rgb: 148 141 137;
+  --xcroller-image-outline-rgb: 255 255 255;
   --xcroller-accent-rgb: 129 1 0;
   --xcroller-accent-text-rgb: 184 113 112;
   --xcroller-on-accent-rgb: 255 255 255;
@@ -18,8 +24,8 @@
   line-height: 1.5;
   font-weight: 400;
 
-  color: #f0f0f0;
-  background-color: #0d0d0d;
+  color: rgb(var(--xcroller-text-rgb));
+  background-color: rgb(var(--xcroller-base-rgb));
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -27,11 +33,21 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+:root[data-theme='light'] {
+  color-scheme: light;
+  --xcroller-base-rgb: 245 233 226;
+  --xcroller-surface-rgb: 255 250 247;
+  --xcroller-text-rgb: 11 11 12;
+  --xcroller-muted-rgb: 104 93 88;
+  --xcroller-image-outline-rgb: 0 0 0;
+}
+
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  @apply bg-[#0d0d0d] text-xcroller-text;
+  color: rgb(var(--xcroller-text-rgb));
+  background-color: rgb(var(--xcroller-base-rgb));
   font-family: 'Atkinson Hyperlegible', sans-serif;
 }
 
@@ -62,6 +78,65 @@ body {
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.2);
   }
+}
+
+:root[data-theme='light'] .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgb(var(--xcroller-text-rgb) / 0.14);
+}
+
+:root[data-theme='light'] .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--xcroller-text-rgb) / 0.24);
+}
+
+/* Runtime surface utilities make both appearance modes instant and persistent. */
+.bg-xcroller-base {
+  --tw-bg-opacity: 1;
+  background-color: rgb(var(--xcroller-base-rgb) / var(--tw-bg-opacity, 1));
+}
+
+.bg-xcroller-base\/95 {
+  background-color: rgb(var(--xcroller-base-rgb) / 0.95);
+}
+
+.bg-xcroller-surface {
+  --tw-bg-opacity: 1;
+  background-color: rgb(var(--xcroller-surface-rgb) / var(--tw-bg-opacity, 1));
+}
+
+.bg-xcroller-surface\/95 {
+  background-color: rgb(var(--xcroller-surface-rgb) / 0.95);
+}
+
+.text-xcroller-text {
+  --tw-text-opacity: 1;
+  color: rgb(var(--xcroller-text-rgb) / var(--tw-text-opacity, 1));
+}
+
+.text-xcroller-text\/80 {
+  color: rgb(var(--xcroller-text-rgb) / 0.8);
+}
+
+.text-xcroller-muted {
+  --tw-text-opacity: 1;
+  color: rgb(var(--xcroller-muted-rgb) / var(--tw-text-opacity, 1));
+}
+
+.text-xcroller-muted\/70 {
+  color: rgb(var(--xcroller-muted-rgb) / 0.7);
+}
+
+.from-xcroller-base {
+  --tw-gradient-from: rgb(var(--xcroller-base-rgb)) var(--tw-gradient-from-position);
+  --tw-gradient-to: rgb(var(--xcroller-base-rgb) / 0) var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+
+.outline-xcroller-image {
+  outline-color: rgb(var(--xcroller-image-outline-rgb) / 0.1);
+}
+
+.border-xcroller-image\/5 {
+  border-color: rgb(var(--xcroller-image-outline-rgb) / 0.08);
 }
 
 /*
@@ -120,8 +195,16 @@ body {
   border-top-color: rgb(var(--xcroller-accent-rgb) / 0.4);
 }
 
+.border-t-xcroller-red {
+  border-top-color: rgb(var(--xcroller-accent-rgb));
+}
+
 .outline-xcroller-red {
   outline-color: rgb(var(--xcroller-accent-rgb));
+}
+
+.outline-xcroller-accent-text {
+  outline-color: rgb(var(--xcroller-accent-text-rgb));
 }
 
 .accent-xcroller-red {
@@ -166,4 +249,109 @@ body {
 
 input[type='range'][class*='bg-xcroller-red']::-webkit-slider-thumb {
   background-color: rgb(var(--xcroller-accent-rgb));
+}
+
+/*
+ * Existing dark chrome uses white/black translucencies for depth. Within a
+ * surface context, light mode remaps those same roles to the supplied ink and
+ * warm-paper palette while media overlays remain intentionally dark.
+ */
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).text-white {
+  --tw-text-opacity: 1;
+  color: rgb(var(--xcroller-text-rgb) / var(--tw-text-opacity, 1));
+}
+
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).text-white\/90 {
+  color: rgb(var(--xcroller-text-rgb) / 0.9);
+}
+
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).text-white\/80 {
+  color: rgb(var(--xcroller-text-rgb) / 0.8);
+}
+
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).text-white\/70 {
+  color: rgb(var(--xcroller-text-rgb) / 0.7);
+}
+
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).text-white\/60 {
+  color: rgb(var(--xcroller-text-rgb) / 0.6);
+}
+
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).text-white\/50 {
+  color: rgb(var(--xcroller-text-rgb) / 0.5);
+}
+
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).text-white\/35 {
+  color: rgb(var(--xcroller-text-rgb) / 0.35);
+}
+
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).bg-white {
+  --tw-bg-opacity: 1;
+  background-color: rgb(var(--xcroller-text-rgb) / var(--tw-bg-opacity, 1));
+}
+
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).bg-white\/5 {
+  background-color: rgb(var(--xcroller-text-rgb) / 0.045);
+}
+
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).bg-white\/10 {
+  background-color: rgb(var(--xcroller-text-rgb) / 0.08);
+}
+
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).bg-white\/20 {
+  background-color: rgb(var(--xcroller-text-rgb) / 0.14);
+}
+
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).bg-white\/30 {
+  background-color: rgb(var(--xcroller-text-rgb) / 0.2);
+}
+
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).bg-black\/20 {
+  background-color: rgb(var(--xcroller-text-rgb) / 0.035);
+}
+
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).bg-black\/40 {
+  background-color: rgb(var(--xcroller-text-rgb) / 0.07);
+}
+
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).border-white\/5 {
+  border-color: rgb(var(--xcroller-text-rgb) / 0.1);
+}
+
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).border-white\/10 {
+  border-color: rgb(var(--xcroller-text-rgb) / 0.16);
+}
+
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).outline-white\/10 {
+  outline-color: rgb(var(--xcroller-text-rgb) / 0.16);
+}
+
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).hover\:text-white:hover,
+:root[data-theme='light'] .theme-surface-context .group:hover .group-hover\:text-white {
+  --tw-text-opacity: 1;
+  color: rgb(var(--xcroller-text-rgb) / var(--tw-text-opacity, 1));
+}
+
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).hover\:bg-white\/5:hover {
+  background-color: rgb(var(--xcroller-text-rgb) / 0.045);
+}
+
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).hover\:bg-white\/10:hover {
+  background-color: rgb(var(--xcroller-text-rgb) / 0.08);
+}
+
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).hover\:bg-white\/20:hover {
+  background-color: rgb(var(--xcroller-text-rgb) / 0.14);
+}
+
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).hover\:bg-black\/30:hover {
+  background-color: rgb(var(--xcroller-text-rgb) / 0.06);
+}
+
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).hover\:bg-black\/40:hover {
+  background-color: rgb(var(--xcroller-text-rgb) / 0.08);
+}
+
+:root[data-theme='light'] :is(.theme-surface-context, .theme-surface-context *).focus-visible\:outline-white:focus-visible {
+  outline-color: rgb(var(--xcroller-text-rgb));
 }

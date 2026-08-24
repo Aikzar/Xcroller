@@ -165,7 +165,7 @@ export const MediaTile = React.memo(({
         >
             <div
                 className={cn(
-                    'w-full h-full relative group rounded-xl overflow-hidden bg-xcroller-surface origin-center outline outline-1 outline-white/10 transition-[box-shadow,outline-color] duration-150',
+                    'w-full h-full relative group rounded-xl overflow-hidden bg-xcroller-surface origin-center outline outline-1 outline-xcroller-image transition-[box-shadow,outline-color] duration-150',
                     isHovered
                         ? 'z-50 outline-2 outline-xcroller-red shadow-2xl'
                         : 'z-0 shadow-lg',
@@ -187,7 +187,7 @@ export const MediaTile = React.memo(({
             >
                 {isWaitingForMedia && (
                     <div className="absolute inset-0 z-20 flex items-center justify-center">
-                        <div className="w-8 h-8 rounded-full border-2 border-white/5 border-t-xcroller-red/40 motion-safe:animate-spin" />
+                        <div className="w-8 h-8 rounded-full border-2 border-xcroller-image/5 border-t-xcroller-red/40 motion-safe:animate-spin" />
                     </div>
                 )}
 

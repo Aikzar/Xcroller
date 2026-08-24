@@ -1,4 +1,4 @@
-import { X, Trash2, Folder as FolderIcon, Plus, Layout, Check, Settings, Palette, Pipette } from 'lucide-react';
+import { X, Trash2, Folder as FolderIcon, Plus, Layout, Check, Settings, Palette, Pipette, Moon, Sun } from 'lucide-react';
 import { useAppStore } from '../lib/store';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
@@ -36,6 +36,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         setIncludeSubdirectories,
         accentColor,
         setAccentColor,
+        appearanceTheme,
+        setAppearanceTheme,
         activity
     } = useAppStore(useShallow((state) => ({
         folderPaths: state.folderPaths,
@@ -50,6 +52,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         setIncludeSubdirectories: state.setIncludeSubdirectories,
         accentColor: state.accentColor,
         setAccentColor: state.setAccentColor,
+        appearanceTheme: state.appearanceTheme,
+        setAppearanceTheme: state.setAppearanceTheme,
         activity: state.activity
     })));
 
@@ -139,7 +143,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     return (
         <AnimatePresence initial={false}>
             {isOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="theme-surface-context fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <motion.div
                         ref={dialogRef}
                         role="dialog"
@@ -333,6 +337,43 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                     <h3 className="text-sm font-medium text-xcroller-muted uppercase tracking-wider">Appearance</h3>
                                 </div>
                                 <div className="space-y-4 rounded-xl border border-white/5 bg-black/20 p-4">
+                                    <div>
+                                        <span className="text-sm font-bold text-white/90">Color mode</span>
+                                        <p className="mt-0.5 text-[10px] text-xcroller-muted">
+                                            Dark is the standard appearance. Both modes keep your accent color.
+                                        </p>
+                                    </div>
+
+                                    <div
+                                        role="group"
+                                        aria-label="Application color mode"
+                                        className="grid grid-cols-2 gap-1 rounded-xl bg-black/40 p-1"
+                                    >
+                                        {([
+                                            { id: 'dark' as const, label: 'Dark', Icon: Moon },
+                                            { id: 'light' as const, label: 'Light', Icon: Sun }
+                                        ]).map(({ id, label, Icon }) => {
+                                            const isSelected = appearanceTheme === id;
+                                            return (
+                                                <button
+                                                    key={id}
+                                                    type="button"
+                                                    aria-pressed={isSelected}
+                                                    onClick={() => setAppearanceTheme(id)}
+                                                    className={`flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 text-xs font-bold transition-[background-color,color,transform] active:scale-[0.96] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${isSelected
+                                                        ? 'bg-xcroller-red text-xcroller-on-accent shadow-lg'
+                                                        : 'text-xcroller-muted hover:bg-white/5 hover:text-white'
+                                                        }`}
+                                                >
+                                                    <Icon size={16} strokeWidth={2} aria-hidden="true" />
+                                                    {label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <div className="h-px bg-white/10" aria-hidden="true" />
+
                                     <div>
                                         <span className="text-sm font-bold text-white/90">Accent color</span>
                                         <p className="mt-0.5 text-[10px] text-xcroller-muted">
