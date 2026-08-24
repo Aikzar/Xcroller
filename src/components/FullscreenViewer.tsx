@@ -1,17 +1,25 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { X, ChevronLeft, ChevronRight, Play, Pause, Volume2, VolumeX, Star } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Play, Pause, Volume2, VolumeX, Star, FolderOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../lib/store';
 import { convertFileSrc } from '@tauri-apps/api/core';
+import { revealItemInDir } from '@tauri-apps/plugin-opener';
+import { useShallow } from 'zustand/react/shallow';
 
 export function FullscreenViewer() {
-    const { mediaItems, selectedMediaId, setSelectedMediaId, toggleStar } = useAppStore();
+    const { mediaItems, selectedMediaId, setSelectedMediaId, toggleStar } = useAppStore(useShallow((state) => ({
+        mediaItems: state.mediaItems,
+        selectedMediaId: state.selectedMediaId,
+        setSelectedMediaId: state.setSelectedMediaId,
+        toggleStar: state.toggleStar
+    })));
     const [isPlaying, setIsPlaying] = useState(true);
     const [volume, setVolume] = useState(1);
     const [isMuted, setIsMuted] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [showControls, setShowControls] = useState(true);
+    const [revealStatus, setRevealStatus] = useState('');
     const videoRef = useRef<HTMLVideoElement>(null);
     const controlsTimeoutRef = useRef<number | undefined>(undefined);
 
@@ -19,6 +27,17 @@ export function FullscreenViewer() {
     const item = mediaItems[selectedIndex];
 
     const handleClose = () => setSelectedMediaId(null);
+
+    const handleRevealInFolder = async (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        try {
+            await revealItemInDir(item.path);
+            setRevealStatus('Opened the containing folder and selected the file.');
+        } catch (error) {
+            console.error('Could not reveal media in its folder:', error);
+            setRevealStatus('Could not open the containing folder.');
+        }
+    };
 
     const handleNext = (e?: React.MouseEvent) => {
         e?.stopPropagation();
@@ -72,8 +91,8 @@ export function FullscreenViewer() {
 
     const formatTime = (time: number) => {
         const minutes = Math.floor(time / 60);
-        const seconds = Math.floor(time % 60);
-        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        const seconds = (time % 60).toFixed(1).padStart(4, '0');
+        return `${minutes}:${seconds}`;
     };
 
     // Keyboard navigation
@@ -187,6 +206,7 @@ export function FullscreenViewer() {
     useEffect(() => {
         setIsZoomed(false);
         setPan({ x: 0, y: 0 });
+        setRevealStatus('');
     }, [selectedIndex]);
 
     if (selectedIndex === -1 || !item || !assetUrl) return null;
@@ -197,7 +217,7 @@ export function FullscreenViewer() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-0 backdrop-blur-xl overflow-hidden"
+                className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-0 overflow-hidden"
                 onClick={handleClose}
                 onMouseMove={handleMouseMove}
             >
@@ -234,8 +254,10 @@ export function FullscreenViewer() {
                                         {/* Seek Bar */}
                                         <input
                                             type="range"
+                                            aria-label="Video position"
                                             min="0"
                                             max={duration || 0}
+                                            step="0.01"
                                             value={currentTime}
                                             onChange={handleSeek}
                                             className="w-full h-1 bg-white/30 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-xcroller-red"
@@ -289,12 +311,21 @@ export function FullscreenViewer() {
                 {/* Top Bar (Overlay) */}
                 <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-start bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
                     <div className="pointer-events-auto">
-                        <p className="text-white font-medium drop-shadow-md truncate max-w-xl">{item.path}</p>
+                        <button
+                            type="button"
+                            onClick={handleRevealInFolder}
+                            className="group flex max-w-xl items-center gap-2 rounded-md text-left text-white font-medium drop-shadow-md hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                            title={`Show ${item.path} in its folder`}
+                        >
+                            <span className="truncate">{item.path}</span>
+                            <FolderOpen size={16} aria-hidden="true" className="shrink-0 opacity-60 group-hover:opacity-100" />
+                        </button>
                         <div className="flex gap-2 text-xs text-white/70 mt-1">
                             <span>{item.file_type.toUpperCase()}</span>
                             <span>•</span>
                             <span>{item.width && item.height ? `${item.width}x${item.height}` : 'Unknown Size'}</span>
                         </div>
+                        <span role="status" aria-live="polite" className="sr-only">{revealStatus}</span>
                     </div>
                 </div>
 

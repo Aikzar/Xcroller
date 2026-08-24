@@ -6,6 +6,7 @@ import { open, message, ask } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { SettingsModal } from './SettingsModal';
 import { FilterSidebar } from './FilterSidebar';
+import { useShallow } from 'zustand/react/shallow';
 
 export function Toolbar() {
     const {
@@ -28,7 +29,25 @@ export function Toolbar() {
         loadFolders,
         exportFavorites,
         clearFavorites
-    } = useAppStore();
+    } = useAppStore(useShallow((state) => ({
+        columns: state.columns,
+        setColumns: state.setColumns,
+        addFolder: state.addFolder,
+        isAutoScrolling: state.isAutoScrolling,
+        toggleAutoScroll: state.toggleAutoScroll,
+        isHoverPaused: state.isHoverPaused,
+        hoverVolume: state.hoverVolume,
+        setHoverVolume: state.setHoverVolume,
+        isFullscreen: state.isFullscreen,
+        setIsFullscreen: state.setIsFullscreen,
+        feeds: state.feeds,
+        activeFeedId: state.activeFeedId,
+        setActiveFeed: state.setActiveFeed,
+        fetchMedia: state.fetchMedia,
+        loadFolders: state.loadFolders,
+        exportFavorites: state.exportFavorites,
+        clearFavorites: state.clearFavorites
+    })));
     const [isVisible, setIsVisible] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);

@@ -17,6 +17,7 @@ interface AppState {
     filters: FilterOptions;
     feeds: Feed[];
     activeFeedId: number | 'home' | 'favorites';
+    preferencesLoaded: boolean;
 
     hasMore: boolean;
 
@@ -32,7 +33,9 @@ interface AppState {
     setIsHoverPaused: (status: boolean) => void;
     toggleAutoScroll: () => void;
     updateItemDimensions: (id: number, width: number, height: number) => void;
+    updateItemMetadata: (id: number, metadata: Partial<Pick<MediaItem, 'width' | 'height' | 'duration_sec'>>) => void;
     loadFolders: () => Promise<void>;
+    loadPreferences: () => Promise<void>;
     addFolder: (path: string, recursive?: boolean) => Promise<void>;
     removeFolder: (path: string) => Promise<void>;
     fetchMedia: (reset?: boolean) => Promise<void>;
@@ -47,6 +50,93 @@ interface AppState {
     clearFavorites: () => Promise<void>;
 }
 
+let filterFetchTimer: ReturnType<typeof setTimeout> | undefined;
+let preferencesSaveTimer: ReturnType<typeof setTimeout> | undefined;
+let mediaRequestVersion = 0;
+let lastSavedPreferences: string | undefined;
+
+const DEFAULT_FILTERS: FilterOptions = {
+    media_type: 'all',
+    orientation: 'all',
+    sort_by: 'created_at',
+    sort_order: 'desc'
+};
+
+const clamp = (value: number, minimum: number, maximum: number) =>
+    Math.min(maximum, Math.max(minimum, value));
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+    typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const normalizeFilters = (value: unknown): FilterOptions => {
+    if (!isRecord(value)) return { ...DEFAULT_FILTERS };
+
+    const mediaTypes = ['image', 'video', 'all'];
+    const orientations = ['horizontal', 'vertical', 'square', 'all'];
+    const sortFields = ['created_at', 'size_bytes', 'resolution', 'duration_sec', 'filename', 'random'];
+    const numberOrUndefined = (candidate: unknown) =>
+        typeof candidate === 'number' && Number.isFinite(candidate) ? candidate : undefined;
+
+    return {
+        media_type: mediaTypes.includes(String(value.media_type))
+            ? value.media_type as FilterOptions['media_type']
+            : DEFAULT_FILTERS.media_type,
+        orientation: orientations.includes(String(value.orientation))
+            ? value.orientation as FilterOptions['orientation']
+            : DEFAULT_FILTERS.orientation,
+        min_width: numberOrUndefined(value.min_width),
+        min_height: numberOrUndefined(value.min_height),
+        min_duration: numberOrUndefined(value.min_duration),
+        max_duration: numberOrUndefined(value.max_duration),
+        min_size: numberOrUndefined(value.min_size),
+        max_size: numberOrUndefined(value.max_size),
+        extensions: Array.isArray(value.extensions)
+            ? value.extensions.filter((extension): extension is string => typeof extension === 'string')
+            : undefined,
+        sort_by: sortFields.includes(String(value.sort_by))
+            ? value.sort_by as FilterOptions['sort_by']
+            : DEFAULT_FILTERS.sort_by,
+        sort_order: value.sort_order === 'asc' || value.sort_order === 'desc'
+            ? value.sort_order
+            : DEFAULT_FILTERS.sort_order
+    };
+};
+
+const serializePreferences = (state: AppState) => JSON.stringify({
+    version: 1,
+    columns: state.columns,
+    hoverVolume: state.hoverVolume,
+    autoScrollSpeed: state.autoScrollSpeed,
+    includeSubdirectories: state.includeSubdirectories,
+    activeFeedId: state.activeFeedId,
+    filters: state.filters
+});
+
+const schedulePreferencesSave = (get: () => AppState) => {
+    if (!get().preferencesLoaded) return;
+    if (preferencesSaveTimer !== undefined) clearTimeout(preferencesSaveTimer);
+
+    preferencesSaveTimer = setTimeout(async () => {
+        preferencesSaveTimer = undefined;
+        const preferences = serializePreferences(get());
+        if (preferences === lastSavedPreferences) return;
+
+        try {
+            await invoke('save_app_preferences', { preferences });
+            lastSavedPreferences = preferences;
+        } catch (error) {
+            console.error('Failed to save preferences', error);
+        }
+    }, 300);
+};
+
+const cancelScheduledFilterFetch = () => {
+    if (filterFetchTimer !== undefined) {
+        clearTimeout(filterFetchTimer);
+        filterFetchTimer = undefined;
+    }
+};
+
 export const useAppStore = create<AppState>((set, get) => ({
     mediaItems: [],
     columns: 5,
@@ -59,38 +149,66 @@ export const useAppStore = create<AppState>((set, get) => ({
     autoScrollSpeed: 1.0,
     includeSubdirectories: true,
     isFullscreen: false,
-    filters: {
-        media_type: 'all',
-        orientation: 'all',
-        sort_by: 'created_at',
-        sort_order: 'desc'
-    },
+    filters: { ...DEFAULT_FILTERS },
     feeds: [],
     activeFeedId: 'home',
+    preferencesLoaded: false,
     hasMore: true,
 
-    setColumns: (cols) => set({ columns: cols }),
+    setColumns: (cols) => {
+        set({ columns: Math.round(clamp(cols, 1, 15)) });
+        schedulePreferencesSave(get);
+    },
     setSelectedMediaId: (id) => set({ selectedMediaId: id }),
-    setHoverVolume: (volume) => set({ hoverVolume: volume }),
-    setAutoScrollSpeed: (speed) => set({ autoScrollSpeed: speed }),
-    setIncludeSubdirectories: (include) => set({ includeSubdirectories: include }),
+    setHoverVolume: (volume) => {
+        set({ hoverVolume: clamp(volume, 0, 1) });
+        schedulePreferencesSave(get);
+    },
+    setAutoScrollSpeed: (speed) => {
+        set({ autoScrollSpeed: clamp(speed, 0.1, 5) });
+        schedulePreferencesSave(get);
+    },
+    setIncludeSubdirectories: (include) => {
+        set({ includeSubdirectories: include });
+        schedulePreferencesSave(get);
+    },
     setIsFullscreen: (status) => set({ isFullscreen: status }),
-    setFilters: async (newFilters) => {
+    setFilters: (newFilters) => {
         const currentFilters = { ...get().filters, ...newFilters };
-        set({ filters: currentFilters, mediaItems: [], hasMore: true });
+        const hasInvalidDurationRange = currentFilters.min_duration != null &&
+            currentFilters.max_duration != null &&
+            currentFilters.min_duration > currentFilters.max_duration;
 
-        const { activeFeedId, feeds, saveFeed } = get();
-        if (activeFeedId !== 'home' && activeFeedId !== 'favorites') {
-            const feed = feeds.find(f => f.id === activeFeedId);
-            if (feed) {
-                await saveFeed({
-                    ...feed,
-                    filter_config: JSON.stringify(currentFilters)
-                });
+        set(hasInvalidDurationRange
+            ? { filters: currentFilters, isLoading: false }
+            : { filters: currentFilters, mediaItems: [], hasMore: true });
+
+        // Invalidate any response for the previous filter set immediately. The
+        // replacement request is debounced so typing a number does not rescan
+        // the database on every keystroke.
+        mediaRequestVersion += 1;
+        cancelScheduledFilterFetch();
+
+        // Keep the last valid results visible while the range is incomplete.
+        if (hasInvalidDurationRange) return;
+
+        schedulePreferencesSave(get);
+
+        filterFetchTimer = setTimeout(async () => {
+            filterFetchTimer = undefined;
+            const { activeFeedId, feeds, saveFeed } = get();
+            if (activeFeedId !== 'home' && activeFeedId !== 'favorites') {
+                const feed = feeds.find(f => f.id === activeFeedId);
+                if (feed) {
+                    await saveFeed({
+                        ...feed,
+                        filter_config: JSON.stringify(get().filters)
+                    });
+                }
             }
-        }
 
-        get().fetchMedia(true);
+            await get().fetchMedia(true);
+        }, 250);
     },
     setIsAutoScrolling: (status) => set({ isAutoScrolling: status }),
     setIsHoverPaused: (status) => set({ isHoverPaused: status }),
@@ -100,6 +218,14 @@ export const useAppStore = create<AppState>((set, get) => ({
         set((state) => ({
             mediaItems: state.mediaItems.map(item =>
                 item.id === id ? { ...item, width, height } : item
+            )
+        }));
+    },
+
+    updateItemMetadata: (id, metadata) => {
+        set((state) => ({
+            mediaItems: state.mediaItems.map(item =>
+                item.id === id ? { ...item, ...metadata } : item
             )
         }));
     },
@@ -116,6 +242,61 @@ export const useAppStore = create<AppState>((set, get) => ({
             }
         } catch (e) {
             console.error("Failed to load folders", e);
+        }
+    },
+
+    loadPreferences: async () => {
+        try {
+            const rawPreferences = await invoke<string | null>('get_app_preferences');
+            if (!rawPreferences) {
+                set({ preferencesLoaded: true });
+                return;
+            }
+
+            const parsed: unknown = JSON.parse(rawPreferences);
+            if (!isRecord(parsed)) throw new Error('Stored preferences are not an object');
+
+            const { feeds } = get();
+            const storedFeedId = parsed.activeFeedId;
+            const activeFeedId: AppState['activeFeedId'] = storedFeedId === 'favorites'
+                ? 'favorites'
+                : typeof storedFeedId === 'number' && feeds.some((feed) => feed.id === storedFeedId)
+                    ? storedFeedId
+                    : 'home';
+
+            let filters = normalizeFilters(parsed.filters);
+            if (typeof activeFeedId === 'number') {
+                const feed = feeds.find((candidate) => candidate.id === activeFeedId);
+                if (feed) {
+                    try {
+                        filters = normalizeFilters(JSON.parse(feed.filter_config));
+                    } catch {
+                        filters = { ...DEFAULT_FILTERS };
+                    }
+                }
+            }
+
+            set({
+                columns: typeof parsed.columns === 'number'
+                    ? Math.round(clamp(parsed.columns, 1, 15))
+                    : get().columns,
+                hoverVolume: typeof parsed.hoverVolume === 'number'
+                    ? clamp(parsed.hoverVolume, 0, 1)
+                    : get().hoverVolume,
+                autoScrollSpeed: typeof parsed.autoScrollSpeed === 'number'
+                    ? clamp(parsed.autoScrollSpeed, 0.1, 5)
+                    : get().autoScrollSpeed,
+                includeSubdirectories: typeof parsed.includeSubdirectories === 'boolean'
+                    ? parsed.includeSubdirectories
+                    : get().includeSubdirectories,
+                activeFeedId,
+                filters,
+                preferencesLoaded: true
+            });
+            lastSavedPreferences = serializePreferences(get());
+        } catch (error) {
+            console.error('Failed to load preferences', error);
+            set({ preferencesLoaded: true });
         }
     },
 
@@ -150,6 +331,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (get().isLoading && !reset) return;
         if (!get().hasMore && !reset) return;
 
+        const requestVersion = reset ? ++mediaRequestVersion : mediaRequestVersion;
         set({ isLoading: true });
         const limit = 50;
         const offset = reset ? 0 : get().mediaItems.length;
@@ -171,6 +353,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
         try {
             const newItems = await invoke<MediaItem[]>('get_media', { limit, offset, filters: queryFilters });
+            if (requestVersion !== mediaRequestVersion) return;
+
             set((state) => ({
                 mediaItems: reset ? newItems : [...state.mediaItems, ...newItems],
                 hasMore: newItems.length === limit,
@@ -188,7 +372,9 @@ export const useAppStore = create<AppState>((set, get) => ({
             }
         } catch (e) {
             console.error("Failed to fetch media", e);
-            set({ isLoading: false });
+            if (requestVersion === mediaRequestVersion) {
+                set({ isLoading: false });
+            }
         }
     },
 
@@ -206,28 +392,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     },
 
     setActiveFeed: (feedId) => {
+        cancelScheduledFilterFetch();
+        mediaRequestVersion += 1;
         const { feeds } = get();
         if (feedId === 'home') {
             set({
                 activeFeedId: feedId,
                 mediaItems: [],
-                filters: {
-                    media_type: 'all',
-                    orientation: 'all',
-                    sort_by: 'created_at',
-                    sort_order: 'desc'
-                }
+                filters: { ...DEFAULT_FILTERS }
             });
         } else if (feedId === 'favorites') {
             set({
                 activeFeedId: feedId,
                 mediaItems: [],
-                filters: {
-                    media_type: 'all',
-                    orientation: 'all',
-                    sort_by: 'created_at',
-                    sort_order: 'desc'
-                }
+                filters: { ...DEFAULT_FILTERS }
             });
         } else {
             const feed = feeds.find(f => f.id === feedId);
@@ -240,6 +418,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                 });
             }
         }
+        schedulePreferencesSave(get);
         get().fetchMedia(true);
     },
 
@@ -265,7 +444,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         try {
             await invoke('delete_feed', { id });
             if (get().activeFeedId === id) {
-                set({ activeFeedId: 'home' });
+                set({ activeFeedId: 'home', filters: { ...DEFAULT_FILTERS } });
+                schedulePreferencesSave(get);
             }
             await get().loadFeeds();
             get().fetchMedia(true);

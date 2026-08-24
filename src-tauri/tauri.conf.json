@@ -30,6 +30,9 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "publisher": "Jens Aerts",
+    "shortDescription": "A fast local image and video browser.",
+    "longDescription": "Xcroller is a private, high-performance desktop browser for local image and video collections.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

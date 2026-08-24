@@ -59,13 +59,21 @@ CREATE TABLE IF NOT EXISTS feeds (
 );
 ";
 
+pub const SCHEMA_SETTINGS: &str = "
+CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY NOT NULL,
+    value TEXT NOT NULL
+);
+";
+
 pub const SCHEMA_INDICES: &str = "
 CREATE INDEX IF NOT EXISTS idx_media_created ON media_items(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_media_starred ON media_items(starred);
 CREATE INDEX IF NOT EXISTS idx_media_type ON media_items(file_type);
+CREATE INDEX IF NOT EXISTS idx_media_duration ON media_items(duration_sec);
 ";
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct FilterOptions {
     pub media_type: Option<String>,  // "image", "video", or "all"
     pub orientation: Option<String>, // "horizontal", "vertical", "square", or "all"
@@ -82,9 +90,91 @@ pub struct FilterOptions {
     pub sort_order: Option<String>, // "asc", "desc"
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::{params, Connection};
+
+    #[test]
+    fn duration_range_excludes_unknown_and_out_of_range_media() {
+        let conn = Connection::open_in_memory().expect("open in-memory database");
+        conn.execute_batch(SCHEMA_MEDIA)
+            .expect("create media table");
+
+        let rows = [
+            ("C:/media/short.mp4", "video", Some(10.0)),
+            ("C:/media/long.mp4", "video", Some(35.0)),
+            ("C:/media/unknown.webm", "video", None),
+            ("C:/media/photo.jpg", "image", None),
+        ];
+        for (path, file_type, duration) in rows {
+            conn.execute(
+                "INSERT INTO media_items
+                 (path, file_type, size_bytes, created_at, duration_sec)
+                 VALUES (?1, ?2, 1, 1, ?3)",
+                params![path, file_type, duration],
+            )
+            .expect("insert fixture");
+        }
+
+        let items = changes::get_media(
+            &conn,
+            50,
+            0,
+            FilterOptions {
+                media_type: Some("video".to_string()),
+                min_duration: Some(5.0),
+                max_duration: Some(20.0),
+                ..FilterOptions::default()
+            },
+        )
+        .expect("query duration range");
+
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].path, "C:/media/short.mp4");
+    }
+
+    #[test]
+    fn app_preferences_round_trip_as_one_record() {
+        let conn = Connection::open_in_memory().expect("open in-memory database");
+        conn.execute_batch(SCHEMA_SETTINGS)
+            .expect("create settings table");
+
+        assert_eq!(changes::get_app_preferences(&conn).unwrap(), None);
+
+        let preferences = r#"{"columns":7,"hoverVolume":0.1,"activeFeedId":"favorites"}"#;
+        changes::save_app_preferences(&conn, preferences).unwrap();
+
+        assert_eq!(
+            changes::get_app_preferences(&conn).unwrap().as_deref(),
+            Some(preferences)
+        );
+    }
+}
+
 pub mod changes {
     use super::*;
-    use rusqlite::{params, Connection, Result};
+    use rusqlite::{params, Connection, OptionalExtension, Result};
+
+    const APP_PREFERENCES_KEY: &str = "app_preferences";
+
+    pub fn get_app_preferences(conn: &Connection) -> Result<Option<String>> {
+        conn.query_row(
+            "SELECT value FROM app_settings WHERE key = ?1",
+            params![APP_PREFERENCES_KEY],
+            |row| row.get(0),
+        )
+        .optional()
+    }
+
+    pub fn save_app_preferences(conn: &Connection, preferences: &str) -> Result<()> {
+        conn.execute(
+            "INSERT INTO app_settings (key, value) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            params![APP_PREFERENCES_KEY, preferences],
+        )?;
+        Ok(())
+    }
 
     pub fn get_feeds(conn: &Connection) -> Result<Vec<Feed>> {
         let mut stmt = conn.prepare("SELECT id, name, folder_paths, filter_config FROM feeds")?;
@@ -170,19 +260,13 @@ pub mod changes {
             where_clauses.push(format!("height >= {}", min_h));
         }
         if let Some(min_d) = filters.min_duration {
-            if min_d > 0.0 {
-                where_clauses.push(format!(
-                    "(duration_sec >= {} OR duration_sec IS NULL)",
-                    min_d
-                ));
+            if min_d >= 0.0 {
+                where_clauses.push(format!("duration_sec >= {}", min_d));
             }
         }
         if let Some(max_d) = filters.max_duration {
-            if max_d > 0.0 {
-                where_clauses.push(format!(
-                    "(duration_sec <= {} OR duration_sec IS NULL)",
-                    max_d
-                ));
+            if max_d >= 0.0 {
+                where_clauses.push(format!("duration_sec <= {}", max_d));
             }
         }
         if let Some(min_s) = filters.min_size {
@@ -320,6 +404,24 @@ pub mod changes {
         conn.execute(
             "UPDATE media_items SET width = ?1, height = ?2 WHERE id = ?3",
             params![width, height, id],
+        )?;
+        Ok(())
+    }
+
+    pub fn update_media_metadata(
+        conn: &Connection,
+        id: i64,
+        width: Option<i32>,
+        height: Option<i32>,
+        duration_sec: Option<f64>,
+    ) -> Result<()> {
+        conn.execute(
+            "UPDATE media_items
+             SET width = COALESCE(?1, width),
+                 height = COALESCE(?2, height),
+                 duration_sec = COALESCE(?3, duration_sec)
+             WHERE id = ?4",
+            params![width, height, duration_sec, id],
         )?;
         Ok(())
     }

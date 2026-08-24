@@ -3,6 +3,7 @@ import { useAppStore } from '../lib/store';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { Feed } from '../lib/types';
+import { useShallow } from 'zustand/react/shallow';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -18,8 +19,21 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         feeds,
         saveFeed,
         deleteFeed,
-        filters
-    } = useAppStore();
+        filters,
+        includeSubdirectories,
+        setIncludeSubdirectories
+    } = useAppStore(useShallow((state) => ({
+        folderPaths: state.folderPaths,
+        removeFolder: state.removeFolder,
+        autoScrollSpeed: state.autoScrollSpeed,
+        setAutoScrollSpeed: state.setAutoScrollSpeed,
+        feeds: state.feeds,
+        saveFeed: state.saveFeed,
+        deleteFeed: state.deleteFeed,
+        filters: state.filters,
+        includeSubdirectories: state.includeSubdirectories,
+        setIncludeSubdirectories: state.setIncludeSubdirectories
+    })));
 
     const [isCreatingFeed, setIsCreatingFeed] = useState(false);
     const [editingFeedId, setEditingFeedId] = useState<number | null>(null);
@@ -258,10 +272,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                                 <span className="text-[10px] text-xcroller-muted">Include subfolders when adding a root folder</span>
                                             </div>
                                             <button
-                                                onClick={() => useAppStore.getState().setIncludeSubdirectories(!useAppStore.getState().includeSubdirectories)}
-                                                className={`w-12 h-6 rounded-full transition-colors relative ${useAppStore.getState().includeSubdirectories ? 'bg-xcroller-red' : 'bg-white/10'}`}
+                                                type="button"
+                                                role="switch"
+                                                aria-checked={includeSubdirectories}
+                                                aria-label="Include subfolders when adding a folder"
+                                                onClick={() => setIncludeSubdirectories(!includeSubdirectories)}
+                                                className={`w-12 h-6 rounded-full transition-colors relative focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${includeSubdirectories ? 'bg-xcroller-red' : 'bg-white/10'}`}
                                             >
-                                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${useAppStore.getState().includeSubdirectories ? 'left-7' : 'left-1'}`} />
+                                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${includeSubdirectories ? 'left-7' : 'left-1'}`} />
                                             </button>
                                         </div>
                                     </div>

@@ -1,9 +1,19 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { convertFileSrc } from '@tauri-apps/api/core';
+import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../lib/store';
 import { MediaItem } from '../lib/types';
 import { MediaTile } from './MediaTile';
-import { motion, AnimatePresence } from 'framer-motion';
-import { convertFileSrc } from '@tauri-apps/api/core';
+
+const GRID_PADDING = 30;
+const GRID_GAP = 6;
+const TOOLBAR_OFFSET = 70;
+const RENDER_OVERSCAN = 400;
+const VIDEO_PLAY_OVERSCAN = 100;
+const MAX_ACTIVE_VIDEO_COLUMNS = 8;
+const HOVER_PREVIEW_DELAY_MS = 35;
+const SCROLL_IDLE_DELAY_MS = 120;
 
 export const MediaGrid = () => {
     const {
@@ -15,24 +25,36 @@ export const MediaGrid = () => {
         autoScrollSpeed,
         fetchMedia,
         hasMore,
-        isLoading
-    } = useAppStore();
+        isLoading,
+        hoverVolume,
+        selectedMediaId
+    } = useAppStore(useShallow((state) => ({
+        mediaItems: state.mediaItems,
+        columns: state.columns,
+        isAutoScrolling: state.isAutoScrolling,
+        isHoverPaused: state.isHoverPaused,
+        setIsHoverPaused: state.setIsHoverPaused,
+        autoScrollSpeed: state.autoScrollSpeed,
+        fetchMedia: state.fetchMedia,
+        hasMore: state.hasMore,
+        isLoading: state.isLoading,
+        hoverVolume: state.hoverVolume,
+        selectedMediaId: state.selectedMediaId
+    })));
+
     const [hoveredItem, setHoveredItem] = useState<MediaItem | null>(null);
+    const [isScrolling, setIsScrolling] = useState(false);
+    const [viewport, setViewport] = useState({ top: 0, bottom: window.innerHeight });
+    const [containerWidth, setContainerWidth] = useState(
+        Math.max(1, window.innerWidth - (GRID_PADDING * 2))
+    );
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const loadMoreRef = useRef<HTMLDivElement>(null);
-    const [viewTop, setViewTop] = useState(0);
-    const [viewBottom, setViewBottom] = useState(window.innerHeight);
-
-    // Layout configuration
-    const padding = 30; // Increased padding
-    const gap = 6;     // Decreased gap
-    const { hoverVolume } = useAppStore(); // Get volume
     const previewVideoRef = useRef<HTMLVideoElement>(null);
+    const hoverTimerRef = useRef<number | undefined>(undefined);
+    const scrollIdleTimerRef = useRef<number | undefined>(undefined);
+    const isScrollingRef = useRef(false);
 
-    // We need to track container width to calculate column width
-    const [containerWidth, setContainerWidth] = useState(window.innerWidth - (padding * 2));
-
-    // Sync volume for preview
     useEffect(() => {
         if (previewVideoRef.current) {
             previewVideoRef.current.volume = hoverVolume;
@@ -43,137 +65,263 @@ export const MediaGrid = () => {
         const container = scrollContainerRef.current;
         if (!container) return;
 
-        const resizeObserver = new ResizeObserver((entries) => {
-            for (const entry of entries) {
-                // Use contentRect for precise width excluding scrollbar
-                setContainerWidth(entry.contentRect.width - (padding * 2));
-            }
+        const resizeObserver = new ResizeObserver(([entry]) => {
+            if (!entry) return;
+            setContainerWidth(Math.max(1, entry.contentRect.width - (GRID_PADDING * 2)));
+            setViewport({
+                top: container.scrollTop,
+                bottom: container.scrollTop + container.clientHeight
+            });
         });
 
         resizeObserver.observe(container);
         return () => resizeObserver.disconnect();
-    }, [padding]);
+    }, []);
 
-    const columnWidth = Math.floor((containerWidth - (gap * (columns - 1))) / columns);
+    const columnWidth = Math.max(
+        1,
+        Math.floor((containerWidth - (GRID_GAP * (columns - 1))) / columns)
+    );
 
-    // Infinite scroll observer
     useEffect(() => {
-        const observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting && hasMore && !isLoading) {
-                fetchMedia();
-            }
-        }, { threshold: 0.1 });
+        const root = scrollContainerRef.current;
+        const target = loadMoreRef.current;
+        if (!root || !target) return;
 
-        if (loadMoreRef.current) observer.observe(loadMoreRef.current);
+        const observer = new IntersectionObserver(([entry]) => {
+            if (entry?.isIntersecting && hasMore && !isLoading) {
+                void fetchMedia();
+            }
+        }, {
+            root,
+            rootMargin: '1200px 0px',
+            threshold: 0
+        });
+
+        observer.observe(target);
         return () => observer.disconnect();
     }, [hasMore, isLoading, fetchMedia]);
 
-    // Calculate masonry positions
     const { itemPositions, totalHeight } = useMemo(() => {
-        if (columns <= 0 || containerWidth <= 0) return { itemPositions: [], totalHeight: 0 };
+        if (columns <= 0 || containerWidth <= 0) {
+            return { itemPositions: [], totalHeight: 0 };
+        }
 
-        const columnHeights = new Array(columns).fill(padding);
-        const positions: Array<{ top: number; left: number; height: number }> = [];
+        const columnHeights = new Array(columns).fill(GRID_PADDING);
+        const positions: Array<{
+            top: number;
+            left: number;
+            height: number;
+            bottom: number;
+            maxBottom: number;
+        }> = [];
+        let maxBottom = 0;
 
         mediaItems.forEach((item) => {
-            const shortestColIndex = columnHeights.indexOf(Math.min(...columnHeights));
-
+            const shortestColumn = columnHeights.indexOf(Math.min(...columnHeights));
             let height = columnWidth;
+
             if (item.width && item.height && item.width > 0) {
-                const aspectRatio = item.height / item.width;
-                height = Math.round(columnWidth * aspectRatio);
+                height = Math.round(columnWidth * (item.height / item.width));
             }
 
+            const top = columnHeights[shortestColumn];
+            const bottom = top + height;
+            maxBottom = Math.max(maxBottom, bottom);
             positions.push({
-                top: columnHeights[shortestColIndex],
-                left: padding + shortestColIndex * (columnWidth + gap),
-                height
+                top,
+                left: GRID_PADDING + shortestColumn * (columnWidth + GRID_GAP),
+                height,
+                bottom,
+                maxBottom
             });
-
-            columnHeights[shortestColIndex] += height + gap;
+            columnHeights[shortestColumn] += height + GRID_GAP;
         });
 
-        return { itemPositions: positions, totalHeight: Math.max(...columnHeights) + padding };
-    }, [mediaItems, columns, columnWidth, gap, padding, containerWidth]);
+        return {
+            itemPositions: positions,
+            totalHeight: Math.max(GRID_PADDING, ...columnHeights) + GRID_PADDING
+        };
+    }, [mediaItems, columns, columnWidth, containerWidth]);
 
-    // Handle scroll for autoscroll and virtualization
     useEffect(() => {
         const container = scrollContainerRef.current;
         if (!container) return;
 
-        let lastRafTime = 0;
-        let rafId: number;
-        // Force initial view update
-        setViewBottom(container.scrollTop + container.clientHeight + 2000);
+        let viewportFrame: number | undefined;
+        const updateViewport = () => {
+            if (!isScrollingRef.current) {
+                isScrollingRef.current = true;
+                setIsScrolling(true);
+            }
+            if (scrollIdleTimerRef.current !== undefined) {
+                window.clearTimeout(scrollIdleTimerRef.current);
+            }
+            scrollIdleTimerRef.current = window.setTimeout(() => {
+                isScrollingRef.current = false;
+                setIsScrolling(false);
+            }, SCROLL_IDLE_DELAY_MS);
 
-        let lastUpdateTime = 0;
+            if (viewportFrame !== undefined) return;
+            viewportFrame = requestAnimationFrame(() => {
+                viewportFrame = undefined;
+                setViewport({
+                    top: container.scrollTop,
+                    bottom: container.scrollTop + container.clientHeight
+                });
+            });
+        };
+
+        updateViewport();
+        container.addEventListener('scroll', updateViewport, { passive: true });
+        return () => {
+            container.removeEventListener('scroll', updateViewport);
+            if (viewportFrame !== undefined) cancelAnimationFrame(viewportFrame);
+            if (scrollIdleTimerRef.current !== undefined) {
+                window.clearTimeout(scrollIdleTimerRef.current);
+            }
+        };
+    }, []);
+
+    useEffect(() => {
+        const container = scrollContainerRef.current;
+        if (!container || !isAutoScrolling) return;
+
+        let lastFrameTime = 0;
+        let frameId = 0;
         let scrollAccumulator = container.scrollTop;
 
         const scroll = (time: number) => {
-            if (!lastRafTime) lastRafTime = time;
-            const deltaTime = time - lastRafTime;
-            lastRafTime = time;
+            if (!lastFrameTime) lastFrameTime = time;
+            const deltaTime = Math.min(time - lastFrameTime, 50);
+            lastFrameTime = time;
 
-            if (isAutoScrolling && !isHoverPaused) {
-                // Check if user manually scrolled (large discrepancy)
+            if (!isHoverPaused) {
                 if (Math.abs(container.scrollTop - scrollAccumulator) > 5) {
                     scrollAccumulator = container.scrollTop;
                 }
-
-                // Adjust speed based on deltaTime to keep it consistent
-                // Moving the division by 8 to the speed setting or removing it would be cleaner,
-                // but keeping it for consistency with previous "feel" if 1.0 was good.
-                // At 0.1 speed -> 0.2px per frame. Accumulator handles the float.
                 scrollAccumulator += (autoScrollSpeed * deltaTime) / 8;
                 container.scrollTop = scrollAccumulator;
             } else {
                 scrollAccumulator = container.scrollTop;
             }
-            rafId = requestAnimationFrame(scroll);
+
+            frameId = requestAnimationFrame(scroll);
         };
 
-        const updateView = () => {
-            const now = performance.now();
-            // Throttle state updates to ~30fps even if scrolling faster
-            if (now - lastUpdateTime > 32) {
-                setViewTop(container.scrollTop);
-                setViewBottom(container.scrollTop + container.clientHeight + 2000); // 2000px buffer
-                lastUpdateTime = now;
-            }
-        };
-
-        container.addEventListener('scroll', updateView, { passive: true });
-        rafId = requestAnimationFrame(scroll);
-
-        return () => {
-            container.removeEventListener('scroll', updateView);
-            cancelAnimationFrame(rafId);
-        };
+        frameId = requestAnimationFrame(scroll);
+        return () => cancelAnimationFrame(frameId);
     }, [isAutoScrolling, isHoverPaused, autoScrollSpeed]);
 
+    useEffect(() => () => {
+        if (hoverTimerRef.current !== undefined) {
+            window.clearTimeout(hoverTimerRef.current);
+        }
+        if (scrollIdleTimerRef.current !== undefined) {
+            window.clearTimeout(scrollIdleTimerRef.current);
+        }
+    }, []);
+
     const handleHoverStart = useCallback((item: MediaItem) => {
-        setHoveredItem(item);
         setIsHoverPaused(true);
+        if (hoverTimerRef.current !== undefined) {
+            window.clearTimeout(hoverTimerRef.current);
+        }
+        hoverTimerRef.current = window.setTimeout(() => {
+            setHoveredItem(item);
+        }, HOVER_PREVIEW_DELAY_MS);
     }, [setIsHoverPaused]);
 
     const handleHoverEnd = useCallback(() => {
+        if (hoverTimerRef.current !== undefined) {
+            window.clearTimeout(hoverTimerRef.current);
+            hoverTimerRef.current = undefined;
+        }
         setHoveredItem(null);
         setIsHoverPaused(false);
     }, [setIsHoverPaused]);
 
-    // Optimized visibility calculation
+    const contentViewportTop = Math.max(0, viewport.top - TOOLBAR_OFFSET);
+    const contentViewportBottom = Math.max(0, viewport.bottom - TOOLBAR_OFFSET);
+
     const visibleIndices = useMemo(() => {
-        const indices = [];
-        const buffer = 1500; // Large buffer for smooth high-speed scrolling
-        for (let i = 0; i < mediaItems.length; i++) {
-            const pos = itemPositions[i];
-            if (!pos) continue;
-            if (pos.top + pos.height > viewTop - buffer && pos.top < viewBottom + buffer) {
-                indices.push(i);
+        const lowerBound = contentViewportTop - RENDER_OVERSCAN;
+        const upperBound = contentViewportBottom + RENDER_OVERSCAN;
+        const indices: number[] = [];
+
+        // Positions are created in non-decreasing top order. Use the running
+        // maximum bottom edge to find the first potentially visible tile in
+        // O(log n), then inspect only the small window around the viewport.
+        let low = 0;
+        let high = itemPositions.length;
+        while (low < high) {
+            const middle = Math.floor((low + high) / 2);
+            if (itemPositions[middle].maxBottom > lowerBound) {
+                high = middle;
+            } else {
+                low = middle + 1;
+            }
+        }
+
+        for (let index = low; index < itemPositions.length; index += 1) {
+            const position = itemPositions[index];
+            if (position.top >= upperBound) break;
+            if (
+                position.bottom > lowerBound &&
+                position.top < upperBound
+            ) {
+                indices.push(index);
             }
         }
         return indices;
-    }, [itemPositions, viewTop, viewBottom, mediaItems.length]);
+    }, [itemPositions, contentViewportTop, contentViewportBottom]);
+
+    const activeVideoIds = useMemo(() => {
+        if (selectedMediaId !== null) return new Set<number>();
+
+        const viewportCenter = (contentViewportTop + contentViewportBottom) / 2;
+        const candidates = visibleIndices
+            .filter((index) => {
+                const item = mediaItems[index];
+                const position = itemPositions[index];
+                return item?.file_type === 'video' &&
+                    item.id !== hoveredItem?.id &&
+                    position.top + position.height > contentViewportTop - VIDEO_PLAY_OVERSCAN &&
+                    position.top < contentViewportBottom + VIDEO_PLAY_OVERSCAN;
+            })
+            .map((index) => ({
+                id: mediaItems[index].id,
+                column: Math.max(0, Math.round(
+                    (itemPositions[index].left - GRID_PADDING) / (columnWidth + GRID_GAP)
+                )),
+                distance: Math.abs(
+                    itemPositions[index].top + (itemPositions[index].height / 2) - viewportCenter
+                )
+            }))
+            .sort((a, b) => a.distance - b.distance);
+
+        // Keep the video nearest the center playing in each column. This gives
+        // every column motion during manual and automatic scrolling, while
+        // bounding decoder pressure on very dense grids.
+        const closestByColumn = new Map<number, number>();
+        for (const candidate of candidates) {
+            if (closestByColumn.has(candidate.column)) continue;
+            closestByColumn.set(candidate.column, candidate.id);
+            if (closestByColumn.size >= MAX_ACTIVE_VIDEO_COLUMNS) break;
+        }
+
+        return new Set(closestByColumn.values());
+    }, [
+        visibleIndices,
+        mediaItems,
+        itemPositions,
+        hoveredItem?.id,
+        contentViewportTop,
+        contentViewportBottom,
+        columnWidth,
+        columns,
+        selectedMediaId,
+    ]);
 
     return (
         <div
@@ -181,47 +329,43 @@ export const MediaGrid = () => {
             ref={scrollContainerRef}
             className="w-full h-full overflow-y-auto overflow-x-hidden no-scrollbar bg-xcroller-base pt-[70px]"
         >
-            <div
-                className="relative w-full"
-                style={{ height: totalHeight }}
-            >
+            <div className="relative w-full" style={{ height: totalHeight }}>
                 {visibleIndices.map((index) => {
                     const item = mediaItems[index];
-                    const pos = itemPositions[index];
-                    if (!item || !pos) return null;
+                    const position = itemPositions[index];
+                    if (!item || !position) return null;
 
                     const isHovered = hoveredItem?.id === item.id;
-
                     return (
                         <div
                             key={item.id}
                             className={`absolute ${isHovered ? 'z-50' : 'z-10'}`}
                             style={{
                                 width: columnWidth,
-                                height: pos.height,
-                                top: pos.top,
-                                left: pos.left,
+                                height: position.height,
+                                top: position.top,
+                                left: position.left,
+                                contain: 'strict'
                             }}
                         >
                             <MediaTile
                                 item={item}
-                                style={{ width: '100%', height: '100%' }}
-                                onHoverStart={() => handleHoverStart(item)}
+                                shouldPlayVideo={activeVideoIds.has(item.id)}
+                                shouldLoadThumbnail={!isScrolling}
+                                onHoverStart={handleHoverStart}
                                 onHoverEnd={handleHoverEnd}
-                                onClick={() => { }}
                             />
                         </div>
                     );
                 })}
 
-                {/* Infinite Scroll Trigger */}
                 <div
                     ref={loadMoreRef}
                     className="absolute w-full h-40 flex items-center justify-center gap-2"
-                    style={{ top: totalHeight - 100 }}
+                    style={{ top: Math.max(0, totalHeight - 100) }}
                 >
                     {isLoading && (
-                        <div className="flex gap-2">
+                        <div className="flex gap-2" aria-label="Loading more media">
                             <div className="w-3 h-3 bg-xcroller-red rounded-full animate-bounce" />
                             <div className="w-3 h-3 bg-xcroller-red rounded-full animate-bounce [animation-delay:0.2s]" />
                             <div className="w-3 h-3 bg-xcroller-red rounded-full animate-bounce [animation-delay:0.4s]" />
@@ -230,40 +374,47 @@ export const MediaGrid = () => {
                 </div>
             </div>
 
-            {/* Hover Preview Overlay */}
-            <AnimatePresence>
+            <AnimatePresence initial={false}>
                 {hoveredItem && (
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        className="fixed inset-0 z-[100] pointer-events-none flex items-center justify-center p-0 bg-black/40 backdrop-blur-sm"
+                        key={hoveredItem.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.06 }}
+                        className="fixed inset-0 z-[100] pointer-events-none flex items-center justify-center bg-black/60"
                     >
-                        <div className="relative flex items-center justify-center max-h-[80vh] max-w-[80vw] w-auto h-auto rounded-3xl overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.8)] border border-white/10 bg-xcroller-surface">
+                        <div className="relative flex items-center justify-center max-h-[80vh] max-w-[80vw] rounded-3xl overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.8)] outline outline-1 outline-white/10 bg-xcroller-surface">
                             {hoveredItem.file_type === 'video' ? (
                                 <video
                                     ref={previewVideoRef}
                                     src={convertFileSrc(hoveredItem.path)}
                                     className="w-auto h-auto max-h-[80vh] max-w-full object-contain"
                                     autoPlay
+                                    preload="auto"
                                     muted={false}
                                     loop
                                     playsInline
+                                    disablePictureInPicture
                                 />
                             ) : (
                                 <img
                                     src={convertFileSrc(hoveredItem.path)}
-                                    alt={hoveredItem.path}
+                                    alt={hoveredItem.path.split(/[\\/]/).pop() ?? 'Media preview'}
                                     className="w-auto h-auto max-h-[80vh] max-w-full object-contain"
                                 />
                             )}
 
                             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
-                                <p className="text-white text-lg font-bold truncate">{hoveredItem.path.split(/[\\/]/).pop()}</p>
+                                <p className="text-white text-lg font-bold truncate">
+                                    {hoveredItem.path.split(/[\\/]/).pop()}
+                                </p>
                                 <div className="flex gap-3 text-sm text-white/60 mt-1">
-                                    <span className="bg-white/10 px-2 py-0.5 rounded uppercase tracking-wider text-[10px] font-bold text-white/80">{hoveredItem.file_type}</span>
+                                    <span className="bg-white/10 px-2 py-0.5 rounded uppercase tracking-wider text-[10px] font-bold text-white/80">
+                                        {hoveredItem.file_type}
+                                    </span>
                                     {hoveredItem.width && <span>{hoveredItem.width}x{hoveredItem.height}</span>}
-                                    {hoveredItem.duration_sec && (
+                                    {hoveredItem.duration_sec != null && (
                                         <span>{Math.round(hoveredItem.duration_sec)}s</span>
                                     )}
                                 </div>
