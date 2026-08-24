@@ -298,7 +298,7 @@ export function Toolbar() {
                                     isHoverPaused ? (
                                         <div className="flex items-center justify-center">
                                             <Pause size={20} aria-hidden="true" />
-                                            <span className="absolute -bottom-6 text-[10px] font-bold text-xcroller-paused-control uppercase">PAUSED</span>
+                                            <span className="absolute -bottom-6 text-[10px] font-bold text-xcroller-text uppercase">PAUSED</span>
                                         </div>
                                     ) : (
                                         <div className="w-5 h-5 bg-white rounded-sm" aria-hidden="true" />

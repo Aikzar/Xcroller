@@ -43,8 +43,6 @@
   --xcroller-text-rgb: 11 11 12;
   --xcroller-muted-rgb: 104 93 88;
   --xcroller-image-outline-rgb: 0 0 0;
-  --xcroller-paused-control-rgb: 0 0 0;
-  --xcroller-on-paused-control-rgb: 255 255 255;
 }
 
 .xcroller-toolbar {
