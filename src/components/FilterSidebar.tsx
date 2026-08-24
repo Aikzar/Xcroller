@@ -52,7 +52,7 @@ export function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
                     >
                         <div className="p-6 border-b border-white/5 flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <Filter size={20} className="text-xcroller-red" />
+                                <Filter size={20} className="text-xcroller-accent-text" />
                                 <h2 className="text-lg font-bold">Filters & Sort</h2>
                             </div>
                             <button
@@ -83,8 +83,8 @@ export function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
                                         <button
                                             key={option.id}
                                             onClick={() => updateFilter({ sort_by: option.id as any })}
-                                            className={`flex items-center justify-between p-3 rounded-lg transition-all border ${filters.sort_by === option.id
-                                                ? 'bg-xcroller-red border-xcroller-red text-white'
+                                            className={`flex items-center justify-between p-3 rounded-lg transition-colors border ${filters.sort_by === option.id
+                                                ? 'bg-xcroller-red border-xcroller-red text-xcroller-on-accent'
                                                 : 'bg-white/5 border-white/5 hover:bg-white/10 text-white/70'
                                                 }`}
                                         >
@@ -98,14 +98,14 @@ export function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => updateFilter({ sort_order: 'asc' })}
-                                        className={`flex-1 flex items-center justify-center gap-2 p-2 rounded-lg border ${filters.sort_order === 'asc' ? 'bg-xcroller-red border-xcroller-red' : 'bg-white/5 border-white/5'
+                                        className={`flex-1 flex items-center justify-center gap-2 p-2 rounded-lg border ${filters.sort_order === 'asc' ? 'bg-xcroller-red border-xcroller-red text-xcroller-on-accent' : 'bg-white/5 border-white/5'
                                             }`}
                                     >
                                         <SortAsc size={16} /> <span className="text-xs">Ascending</span>
                                     </button>
                                     <button
                                         onClick={() => updateFilter({ sort_order: 'desc' })}
-                                        className={`flex-1 flex items-center justify-center gap-2 p-2 rounded-lg border ${filters.sort_order === 'desc' ? 'bg-xcroller-red border-xcroller-red' : 'bg-white/5 border-white/5'
+                                        className={`flex-1 flex items-center justify-center gap-2 p-2 rounded-lg border ${filters.sort_order === 'desc' ? 'bg-xcroller-red border-xcroller-red text-xcroller-on-accent' : 'bg-white/5 border-white/5'
                                             }`}
                                     >
                                         <SortDesc size={16} /> <span className="text-xs">Descending</span>
@@ -127,7 +127,7 @@ export function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
                                         <button
                                             key={type.id}
                                             onClick={() => updateFilter({ media_type: type.id as any })}
-                                            className={`flex-1 flex flex-col items-center gap-1.5 py-2.5 rounded-lg transition-all ${filters.media_type === type.id ? 'bg-xcroller-red text-white shadow-lg' : 'text-white/50 hover:text-white'
+                                            className={`flex-1 flex flex-col items-center gap-1.5 py-2.5 rounded-lg transition-colors ${filters.media_type === type.id ? 'bg-xcroller-red text-xcroller-on-accent shadow-lg' : 'text-white/50 hover:text-white'
                                                 }`}
                                         >
                                             <type.icon size={16} />
@@ -152,7 +152,7 @@ export function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
                                         <button
                                             key={o.id}
                                             onClick={() => updateFilter({ orientation: o.id as any })}
-                                            className={`px-3 py-2 rounded-lg text-xs border transition-all ${filters.orientation === o.id ? 'bg-xcroller-red border-xcroller-red text-white' : 'bg-white/5 border-white/5 hover:bg-white/10 text-white/60'
+                                            className={`px-3 py-2 rounded-lg text-xs border transition-colors ${filters.orientation === o.id ? 'bg-xcroller-red border-xcroller-red text-xcroller-on-accent' : 'bg-white/5 border-white/5 hover:bg-white/10 text-white/60'
                                                 }`}
                                         >
                                             {o.label}
@@ -183,7 +183,7 @@ export function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
                                                         max_duration: preset.max
                                                     })}
                                                     className={`px-3 py-2 rounded-lg text-xs border transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.96] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${isSelected
-                                                        ? 'bg-xcroller-red border-xcroller-red text-white'
+                                                        ? 'bg-xcroller-red border-xcroller-red text-xcroller-on-accent'
                                                         : 'bg-white/5 border-white/5 hover:bg-white/10 text-white/70'
                                                         }`}
                                                 >
@@ -199,7 +199,7 @@ export function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
                                                 max_duration: undefined
                                             })}
                                             className={`px-3 py-2 rounded-lg text-xs border transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.96] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${filters.min_duration == null && filters.max_duration == null
-                                                ? 'bg-xcroller-red border-xcroller-red text-white'
+                                                ? 'bg-xcroller-red border-xcroller-red text-xcroller-on-accent'
                                                 : 'bg-white/5 border-white/5 hover:bg-white/10 text-white/70'
                                                 }`}
                                         >
@@ -260,7 +260,7 @@ export function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
 
                                     <p
                                         id="duration-range-error"
-                                        className={`text-xs text-xcroller-accent ${durationRangeInvalid ? 'block' : 'sr-only'}`}
+                                        className={`text-xs text-xcroller-danger ${durationRangeInvalid ? 'block' : 'sr-only'}`}
                                         aria-live="polite"
                                     >
                                         {durationRangeInvalid
@@ -284,7 +284,7 @@ export function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
                                     min_size: undefined,
                                     max_size: undefined,
                                 })}
-                                className="w-full py-4 text-xs font-bold text-xcroller-muted hover:text-xcroller-red transition-colors border-t border-white/5"
+                                className="w-full py-4 text-xs font-bold text-xcroller-muted hover:text-xcroller-accent-text transition-colors border-t border-white/5"
                             >
                                 RESET ALL FILTERS
                             </button>

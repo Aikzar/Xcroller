@@ -365,10 +365,10 @@ export const MediaGrid = () => {
                     style={{ top: Math.max(0, totalHeight - 100) }}
                 >
                     {isLoading && (
-                        <div className="flex gap-2" aria-label="Loading more media">
-                            <div className="w-3 h-3 bg-xcroller-red rounded-full animate-bounce" />
-                            <div className="w-3 h-3 bg-xcroller-red rounded-full animate-bounce [animation-delay:0.2s]" />
-                            <div className="w-3 h-3 bg-xcroller-red rounded-full animate-bounce [animation-delay:0.4s]" />
+                        <div className="flex gap-2" role="status" aria-label="Loading more media">
+                            <div className="w-3 h-3 bg-xcroller-red rounded-full motion-safe:animate-bounce" />
+                            <div className="w-3 h-3 bg-xcroller-red rounded-full motion-safe:animate-bounce [animation-delay:0.2s]" />
+                            <div className="w-3 h-3 bg-xcroller-red rounded-full motion-safe:animate-bounce [animation-delay:0.4s]" />
                         </div>
                     )}
                 </div>

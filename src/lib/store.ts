@@ -1,18 +1,27 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
 import { MediaItem, Folder, FilterOptions, Feed } from './types';
+import { applyAccentColor, DEFAULT_ACCENT_COLOR, normalizeAccentColor } from './theme';
+
+interface ActivityStatus {
+    id: number;
+    message: string;
+    startedAt: number;
+}
 
 interface AppState {
     mediaItems: MediaItem[];
     columns: number;
     folderPaths: Folder[];
     isLoading: boolean;
+    activity: ActivityStatus | null;
     selectedMediaId: number | null;
     isAutoScrolling: boolean;
     isHoverPaused: boolean;
     hoverVolume: number;
     autoScrollSpeed: number;
     includeSubdirectories: boolean;
+    accentColor: string;
     isFullscreen: boolean;
     filters: FilterOptions;
     feeds: Feed[];
@@ -27,6 +36,7 @@ interface AppState {
     setHoverVolume: (volume: number) => void;
     setAutoScrollSpeed: (speed: number) => void;
     setIncludeSubdirectories: (include: boolean) => void;
+    setAccentColor: (color: string) => void;
     setIsFullscreen: (status: boolean) => void;
     setFilters: (filters: Partial<FilterOptions>) => void;
     setIsAutoScrolling: (status: boolean) => void;
@@ -39,7 +49,11 @@ interface AppState {
     addFolder: (path: string, recursive?: boolean) => Promise<void>;
     removeFolder: (path: string) => Promise<void>;
     fetchMedia: (reset?: boolean) => Promise<void>;
+    refreshLibrary: () => Promise<void>;
     toggleStar: (id: number) => void;
+    beginActivity: (message: string) => number;
+    updateActivity: (id: number, message: string) => void;
+    finishActivity: (id: number, minimumVisibleMs?: number) => Promise<void>;
 
     // Feed Actions
     setActiveFeed: (feedId: number | 'home' | 'favorites') => void;
@@ -54,6 +68,7 @@ let filterFetchTimer: ReturnType<typeof setTimeout> | undefined;
 let preferencesSaveTimer: ReturnType<typeof setTimeout> | undefined;
 let mediaRequestVersion = 0;
 let lastSavedPreferences: string | undefined;
+let activitySequence = 0;
 
 const DEFAULT_FILTERS: FilterOptions = {
     media_type: 'all',
@@ -114,11 +129,12 @@ const parseFolderPaths = (serialized: string): string[] => {
 };
 
 const serializePreferences = (state: AppState) => JSON.stringify({
-    version: 1,
+    version: 2,
     columns: state.columns,
     hoverVolume: state.hoverVolume,
     autoScrollSpeed: state.autoScrollSpeed,
     includeSubdirectories: state.includeSubdirectories,
+    accentColor: state.accentColor,
     activeFeedId: state.activeFeedId,
     filters: state.filters
 });
@@ -153,12 +169,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     columns: 5,
     folderPaths: [],
     isLoading: false,
+    activity: null,
     selectedMediaId: null,
     isAutoScrolling: false,
     isHoverPaused: false,
     hoverVolume: 0.5,
     autoScrollSpeed: 1.0,
     includeSubdirectories: true,
+    accentColor: DEFAULT_ACCENT_COLOR,
     isFullscreen: false,
     filters: { ...DEFAULT_FILTERS },
     feeds: [],
@@ -183,7 +201,32 @@ export const useAppStore = create<AppState>((set, get) => ({
         set({ includeSubdirectories: include });
         schedulePreferencesSave(get);
     },
+    setAccentColor: (color) => {
+        const normalized = normalizeAccentColor(color);
+        if (!normalized) return;
+        applyAccentColor(normalized);
+        set({ accentColor: normalized });
+        schedulePreferencesSave(get);
+    },
     setIsFullscreen: (status) => set({ isFullscreen: status }),
+    beginActivity: (message) => {
+        const id = ++activitySequence;
+        set({ activity: { id, message, startedAt: Date.now() } });
+        return id;
+    },
+    updateActivity: (id, message) => set((state) => state.activity?.id === id
+        ? { activity: { ...state.activity, message } }
+        : {}),
+    finishActivity: async (id, minimumVisibleMs = 400) => {
+        const activity = get().activity;
+        if (activity?.id !== id) return;
+
+        const remaining = minimumVisibleMs - (Date.now() - activity.startedAt);
+        if (remaining > 0) {
+            await new Promise(resolve => window.setTimeout(resolve, remaining));
+        }
+        set((state) => state.activity?.id === id ? { activity: null } : {});
+    },
     setFilters: (newFilters) => {
         const currentFilters = { ...get().filters, ...newFilters };
         const hasInvalidDurationRange = currentFilters.min_duration != null &&
@@ -260,6 +303,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         try {
             const rawPreferences = await invoke<string | null>('get_app_preferences');
             if (!rawPreferences) {
+                applyAccentColor(DEFAULT_ACCENT_COLOR);
                 set({ preferencesLoaded: true });
                 return;
             }
@@ -276,6 +320,8 @@ export const useAppStore = create<AppState>((set, get) => ({
                     : 'home';
 
             let filters = normalizeFilters(parsed.filters);
+            const accentColor = normalizeAccentColor(parsed.accentColor) ?? DEFAULT_ACCENT_COLOR;
+            applyAccentColor(accentColor);
             if (typeof activeFeedId === 'number') {
                 const feed = feeds.find((candidate) => candidate.id === activeFeedId);
                 if (feed) {
@@ -300,6 +346,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                 includeSubdirectories: typeof parsed.includeSubdirectories === 'boolean'
                     ? parsed.includeSubdirectories
                     : get().includeSubdirectories,
+                accentColor,
                 activeFeedId,
                 filters,
                 preferencesLoaded: true
@@ -307,16 +354,19 @@ export const useAppStore = create<AppState>((set, get) => ({
             lastSavedPreferences = serializePreferences(get());
         } catch (error) {
             console.error('Failed to load preferences', error);
+            applyAccentColor(DEFAULT_ACCENT_COLOR);
             set({ preferencesLoaded: true });
         }
     },
 
     addFolder: async (path, recursive) => {
+        const activityId = get().beginActivity(`Scanning ${path.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? 'folder'}…`);
         set({ isLoading: true });
         try {
             const isRecursive = recursive ?? get().includeSubdirectories;
             // 1. Scan
-            await invoke('scan_folder', { path, recursive: isRecursive });
+            const itemCount = await invoke<number>('scan_folder', { path, recursive: isRecursive });
+            get().updateActivity(activityId, `Loading ${itemCount.toLocaleString()} media ${itemCount === 1 ? 'item' : 'items'}…`);
             // 2. Reload folders
             await get().loadFolders();
             // 3. Reload media
@@ -325,16 +375,34 @@ export const useAppStore = create<AppState>((set, get) => ({
             console.error("Failed to add folder", e);
         } finally {
             set({ isLoading: false });
+            await get().finishActivity(activityId);
         }
     },
 
     removeFolder: async (path) => {
+        const activityId = get().beginActivity('Removing folder from the library…');
         try {
             await invoke('remove_folder', { path });
             await get().loadFolders();
             await get().fetchMedia(true);
         } catch (e) {
             console.error("Failed to remove folder", e);
+        } finally {
+            await get().finishActivity(activityId);
+        }
+    },
+
+    refreshLibrary: async () => {
+        if (get().activity) return;
+        const activityId = get().beginActivity('Refreshing library…');
+        try {
+            await get().loadFolders();
+            get().updateActivity(activityId, 'Loading the latest media…');
+            await get().fetchMedia(true);
+        } catch (error) {
+            console.error('Failed to refresh library', error);
+        } finally {
+            await get().finishActivity(activityId);
         }
     },
 

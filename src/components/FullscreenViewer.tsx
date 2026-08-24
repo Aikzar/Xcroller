@@ -335,7 +335,7 @@ export function FullscreenViewer() {
                         e.stopPropagation();
                         if (item.id) toggleStar(item.id);
                     }}
-                    className={`absolute top-4 right-16 p-2 rounded-full transition-colors z-50 pointer-events-auto ${item.starred ? 'bg-xcroller-red text-white' : 'bg-white/10 hover:bg-white/20 text-white'
+                    className={`absolute top-4 right-16 p-2 rounded-full transition-colors z-50 pointer-events-auto ${item.starred ? 'bg-xcroller-red text-xcroller-on-accent' : 'bg-white/10 hover:bg-white/20 text-white'
                         }`}
                     title="Toggle Favorite (F)"
                 >
@@ -355,7 +355,7 @@ export function FullscreenViewer() {
                     {selectedIndex > 0 && (
                         <button
                             onClick={handlePrev}
-                            className="pointer-events-auto p-3 rounded-full bg-black/20 hover:bg-black/50 text-white/50 hover:text-white transition-all backdrop-blur-sm"
+                            className="pointer-events-auto p-3 rounded-full bg-black/20 hover:bg-black/50 text-white/50 hover:text-white transition-colors backdrop-blur-sm"
                         >
                             <ChevronLeft size={32} />
                         </button>
@@ -365,7 +365,7 @@ export function FullscreenViewer() {
                     {selectedIndex < mediaItems.length - 1 && (
                         <button
                             onClick={handleNext}
-                            className="pointer-events-auto p-3 rounded-full bg-black/20 hover:bg-black/50 text-white/50 hover:text-white transition-all backdrop-blur-sm"
+                            className="pointer-events-auto p-3 rounded-full bg-black/20 hover:bg-black/50 text-white/50 hover:text-white transition-colors backdrop-blur-sm"
                         >
                             <ChevronRight size={32} />
                         </button>

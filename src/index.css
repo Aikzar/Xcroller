@@ -10,6 +10,10 @@
 }
 
 :root {
+  --xcroller-accent-rgb: 129 1 0;
+  --xcroller-accent-text-rgb: 184 113 112;
+  --xcroller-on-accent-rgb: 255 255 255;
+
   font-family: 'Atkinson Hyperlegible', Inter, system-ui, sans-serif;
   line-height: 1.5;
   font-weight: 400;

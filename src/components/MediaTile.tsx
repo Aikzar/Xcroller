@@ -187,7 +187,7 @@ export const MediaTile = React.memo(({
             >
                 {isWaitingForMedia && (
                     <div className="absolute inset-0 z-20 flex items-center justify-center">
-                        <div className="w-8 h-8 rounded-full border-2 border-white/5 border-t-xcroller-red/40 animate-spin" />
+                        <div className="w-8 h-8 rounded-full border-2 border-white/5 border-t-xcroller-red/40 motion-safe:animate-spin" />
                     </div>
                 )}
 
@@ -300,8 +300,8 @@ export const MediaTile = React.memo(({
                     className={cn(
                         'absolute z-30 bottom-2 right-2 p-2 rounded-full transition-[background-color,color,opacity,transform] duration-150 active:scale-[0.96]',
                         item.starred
-                            ? 'bg-xcroller-accent text-white opacity-100'
-                            : 'bg-black/40 text-white/70 hover:bg-xcroller-accent hover:text-white opacity-0 group-hover:opacity-100'
+                            ? 'bg-xcroller-accent text-xcroller-on-accent opacity-100'
+                            : 'bg-black/40 text-white/70 hover:bg-xcroller-accent hover:text-xcroller-on-accent opacity-0 group-hover:opacity-100'
                     )}
                 >
                     <Star size={16} className={cn(item.starred && 'fill-current')} />
