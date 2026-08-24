@@ -20,6 +20,8 @@
   --xcroller-accent-rgb: 129 1 0;
   --xcroller-accent-text-rgb: 184 113 112;
   --xcroller-on-accent-rgb: 255 255 255;
+  --xcroller-paused-control-rgb: 255 255 255;
+  --xcroller-on-paused-control-rgb: 0 0 0;
 
   font-family: 'Atkinson Hyperlegible', Inter, system-ui, sans-serif;
   line-height: 1.5;
@@ -41,6 +43,8 @@
   --xcroller-text-rgb: 11 11 12;
   --xcroller-muted-rgb: 104 93 88;
   --xcroller-image-outline-rgb: 0 0 0;
+  --xcroller-paused-control-rgb: 0 0 0;
+  --xcroller-on-paused-control-rgb: 255 255 255;
 }
 
 .xcroller-toolbar {
@@ -204,6 +208,18 @@ body {
 
 .text-xcroller-muted\/70 {
   color: rgb(var(--xcroller-muted-rgb) / 0.7);
+}
+
+.bg-xcroller-paused-control {
+  background-color: rgb(var(--xcroller-paused-control-rgb));
+}
+
+.text-xcroller-paused-control {
+  color: rgb(var(--xcroller-paused-control-rgb));
+}
+
+.text-xcroller-on-paused-control {
+  color: rgb(var(--xcroller-on-paused-control-rgb));
 }
 
 .from-xcroller-base {

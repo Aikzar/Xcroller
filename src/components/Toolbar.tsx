@@ -289,7 +289,7 @@ export function Toolbar() {
                                 onClick={toggleAutoScroll}
                                 aria-label={isAutoScrolling ? 'Stop automatic scrolling' : 'Start automatic scrolling'}
                                 className={`p-2.5 rounded-full transition-[background-color,color,transform] shadow-lg relative ${isAutoScrolling
-                                    ? (isHoverPaused ? 'bg-yellow-500 text-black scale-110' : 'bg-xcroller-red text-xcroller-on-accent scale-110')
+                                    ? (isHoverPaused ? 'bg-xcroller-paused-control text-xcroller-on-paused-control scale-110' : 'bg-xcroller-red text-xcroller-on-accent scale-110')
                                     : 'bg-white/5 text-xcroller-text/80 hover:text-white hover:bg-white/10'
                                     }`}
                                 title="Toggle Auto-Scroll (S / Space)"
@@ -297,14 +297,14 @@ export function Toolbar() {
                                 {isAutoScrolling ? (
                                     isHoverPaused ? (
                                         <div className="flex items-center justify-center">
-                                            <Pause size={20} />
-                                            <span className="absolute -bottom-6 text-[10px] font-bold text-yellow-500 uppercase">PAUSED</span>
+                                            <Pause size={20} aria-hidden="true" />
+                                            <span className="absolute -bottom-6 text-[10px] font-bold text-xcroller-paused-control uppercase">PAUSED</span>
                                         </div>
                                     ) : (
-                                        <div className="w-5 h-5 bg-white rounded-sm" />
+                                        <div className="w-5 h-5 bg-white rounded-sm" aria-hidden="true" />
                                     )
                                 ) : (
-                                    <Play size={20} className="ml-0.5" />
+                                    <Play size={20} className="ml-0.5" aria-hidden="true" />
                                 )}
                             </button>
 
@@ -351,13 +351,15 @@ export function Toolbar() {
                     >
                         <button
                             onClick={toggleAutoScroll}
-                            className={`w-14 h-14 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.5)] flex items-center justify-center transition-transform hover:scale-105 ${isHoverPaused ? 'bg-yellow-500 text-black' : 'bg-xcroller-red text-xcroller-on-accent'
+                            aria-label="Stop automatic scrolling"
+                            title={isHoverPaused ? 'Automatic scrolling paused while previewing media' : 'Stop automatic scrolling'}
+                            className={`w-14 h-14 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.5)] flex items-center justify-center transition-[background-color,color,transform] hover:scale-105 active:scale-[0.96] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-xcroller-accent-text ${isHoverPaused ? 'bg-xcroller-paused-control text-xcroller-on-paused-control' : 'bg-xcroller-red text-xcroller-on-accent'
                                 }`}
                         >
                             {isHoverPaused ? (
-                                <Pause size={24} className="fill-current" />
+                                <Pause size={24} className="fill-current" aria-hidden="true" />
                             ) : (
-                                <div className="w-5 h-5 bg-current rounded-sm" />
+                                <div className="w-5 h-5 bg-current rounded-sm" aria-hidden="true" />
                             )}
                         </button>
                     </motion.div>
