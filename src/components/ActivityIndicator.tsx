@@ -10,7 +10,7 @@ export function ActivityIndicator() {
             role="status"
             aria-live="polite"
             aria-atomic="true"
-            className="pointer-events-none fixed left-1/2 top-20 z-[90] min-h-10 -translate-x-1/2"
+            className="xcroller-activity-indicator pointer-events-none fixed left-1/2 z-[90] min-h-10 -translate-x-1/2"
         >
             <AnimatePresence initial={false}>
                 {activity && (

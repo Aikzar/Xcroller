@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useAppStore } from '../lib/store';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Minus, Plus, Grid3X3, FolderPlus, Play, Pause, Settings, Volume2, Maximize, Minimize, Filter, RefreshCcw, Star, Download, Trash2 } from 'lucide-react';
+import { Minus, Plus, Grid3X3, FolderPlus, Play, Pause, Settings, Volume2, Maximize, Minimize, Filter, RefreshCcw, Download, Trash2 } from 'lucide-react';
 import { open, message, ask } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { SettingsModal } from './SettingsModal';
 import { FilterSidebar } from './FilterSidebar';
+import { FeedSwitcher } from './FeedSwitcher';
 import { useShallow } from 'zustand/react/shallow';
 
 export function Toolbar() {
@@ -189,9 +190,9 @@ export function Toolbar() {
                         animate={{ y: 0 }}
                         exit={{ y: -100 }}
                         transition={{ duration: 0.3, ease: 'easeInOut' }}
-                        className="theme-surface-context fixed top-0 left-0 right-0 h-16 bg-xcroller-base/95 backdrop-blur-xl border-b border-white/5 z-[60] flex items-center px-6 justify-between shadow-2xl"
+                        className="xcroller-toolbar theme-surface-context fixed top-0 left-0 right-0 bg-xcroller-base/95 backdrop-blur-xl border-b border-white/5 z-[60] shadow-2xl"
                     >
-                        <div className="flex items-center gap-4">
+                        <div className="xcroller-toolbar__leading flex items-center gap-4">
                             <button
                                 onClick={handleAddFolder}
                                 disabled={activity !== null}
@@ -217,41 +218,20 @@ export function Toolbar() {
                             </button>
                         </div>
 
-                        {/* Feed Switcher */}
-                        <div className="flex items-center gap-1 bg-black/20 p-1 rounded-xl border border-white/5 max-w-md overflow-x-auto no-scrollbar">
-                            <button
-                                onClick={() => setActiveFeed('home')}
-                                className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors whitespace-nowrap ${activeFeedId === 'home' ? 'bg-xcroller-red text-xcroller-on-accent shadow-lg' : 'text-xcroller-muted hover:text-white hover:bg-white/5'
-                                    }`}
-                            >
-                                HOME FEED
-                            </button>
-                            <button
-                                onClick={() => setActiveFeed('favorites')}
-                                className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors whitespace-nowrap flex items-center gap-1 ${activeFeedId === 'favorites' ? 'bg-xcroller-red text-xcroller-on-accent shadow-lg' : 'text-xcroller-muted hover:text-white hover:bg-white/5'
-                                    }`}
-                            >
-                                <Star size={12} className={activeFeedId === 'favorites' ? 'fill-current' : ''} />
-                                FAVORITES
-                            </button>
-                            {feeds.map(feed => (
-                                <button
-                                    key={feed.id}
-                                    onClick={() => setActiveFeed(feed.id!)}
-                                    className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors whitespace-nowrap ${activeFeedId === feed.id ? 'bg-xcroller-red text-xcroller-on-accent shadow-lg' : 'text-xcroller-muted hover:text-white hover:bg-white/5'
-                                        }`}
-                                >
-                                    {feed.name}
-                                </button>
-                            ))}
-                        </div>
+                        <FeedSwitcher
+                            feeds={feeds}
+                            activeFeedId={activeFeedId}
+                            setActiveFeed={setActiveFeed}
+                            className="xcroller-toolbar__feeds w-full max-w-3xl justify-self-center"
+                        />
 
-                        {/* Favorites Actions */}
-                        <div className="flex items-center">
+                        <div className="xcroller-toolbar__actions flex min-w-0 items-center gap-6">
+                            {/* Favorites Actions */}
                             {activeFeedId === 'favorites' && (
-                                <div className="flex items-center gap-2 bg-xcroller-red/20 border border-xcroller-red/30 rounded-full px-2 py-1 mr-4">
+                                <div className="xcroller-toolbar__favorite-actions flex items-center gap-2 bg-xcroller-red/20 border border-xcroller-red/30 rounded-full px-2 py-1">
                                     <button
                                         onClick={handleExportFavorites}
+                                        aria-label="Export favorites"
                                         className="p-1.5 hover:bg-xcroller-red hover:text-xcroller-on-accent rounded-full transition-colors text-xcroller-accent-text"
                                         title="Export Favorites"
                                     >
@@ -260,6 +240,7 @@ export function Toolbar() {
                                     <div className="w-px h-4 bg-xcroller-red/30" />
                                     <button
                                         onClick={handleClearFavorites}
+                                        aria-label="Clear all favorites"
                                         className="p-1.5 hover:bg-xcroller-red hover:text-xcroller-on-accent rounded-full transition-colors text-xcroller-accent-text"
                                         title="Clear All Favorites"
                                     >
@@ -267,11 +248,9 @@ export function Toolbar() {
                                     </button>
                                 </div>
                             )}
-                        </div>
 
-                        <div className="flex items-center gap-6">
                             {/* Hover Volume Control */}
-                            <div className="flex items-center gap-3 bg-white/5 rounded-full px-4 py-1.5 border border-white/5 transition-colors hover:bg-white/10 group">
+                            <div className="xcroller-toolbar__volume flex items-center gap-3 bg-white/5 rounded-full px-4 py-1.5 border border-white/5 transition-colors hover:bg-white/10 group">
                                 <Volume2 size={16} className="text-xcroller-muted group-hover:text-white transition-colors" />
                                 <input
                                     type="range"
@@ -286,7 +265,7 @@ export function Toolbar() {
                             </div>
 
                             {/* Grid Controls */}
-                            <div className="flex items-center gap-2 bg-white/5 rounded-full px-3 py-1.5 border border-white/5">
+                            <div className="xcroller-toolbar__grid flex items-center gap-2 bg-white/5 rounded-full px-3 py-1.5 border border-white/5">
                                 <Grid3X3 size={16} className="text-xcroller-muted mr-1 pointer-events-none" />
                                 <button
                                     onClick={() => setColumns(Math.max(1, columns - 1))}
@@ -307,6 +286,7 @@ export function Toolbar() {
 
                             <button
                                 onClick={toggleAutoScroll}
+                                aria-label={isAutoScrolling ? 'Stop automatic scrolling' : 'Start automatic scrolling'}
                                 className={`p-2.5 rounded-full transition-[background-color,color,transform] shadow-lg relative ${isAutoScrolling
                                     ? (isHoverPaused ? 'bg-yellow-500 text-black scale-110' : 'bg-xcroller-red text-xcroller-on-accent scale-110')
                                     : 'bg-white/5 text-xcroller-text/80 hover:text-white hover:bg-white/10'
@@ -329,6 +309,7 @@ export function Toolbar() {
 
                             <button
                                 onClick={() => setIsFilterOpen(true)}
+                                aria-label="Open filters and sorting"
                                 className={`p-2.5 rounded-full transition-colors ${isFilterOpen ? 'bg-xcroller-red text-xcroller-on-accent' : 'bg-white/5 text-xcroller-text/80 hover:text-white hover:bg-white/10'}`}
                                 title="Filters & Sorting"
                             >
@@ -337,6 +318,8 @@ export function Toolbar() {
 
                             <button
                                 onClick={handleToggleFullscreen}
+                                aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                                data-toolbar-fullscreen
                                 className="p-2.5 bg-white/5 rounded-full transition-colors text-xcroller-text/80 hover:text-white hover:bg-white/10"
                                 title="Toggle Fullscreen"
                             >

@@ -301,7 +301,7 @@ export const MediaTile = React.memo(({
                         'absolute z-30 bottom-2 right-2 p-2 rounded-full transition-[background-color,color,opacity,transform] duration-150 active:scale-[0.96]',
                         item.starred
                             ? 'bg-xcroller-accent text-xcroller-on-accent opacity-100'
-                            : 'bg-black/40 text-white/70 hover:bg-xcroller-accent hover:text-xcroller-on-accent opacity-0 group-hover:opacity-100'
+                            : 'theme-accent-hover bg-black/40 text-white/70 opacity-0 group-hover:opacity-100'
                     )}
                 >
                     <Star size={16} className={cn(item.starred && 'fill-current')} />

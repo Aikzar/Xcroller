@@ -11,6 +11,7 @@
 
 :root {
   color-scheme: dark;
+  --xcroller-toolbar-offset: 70px;
   --xcroller-base-rgb: 11 11 12;
   --xcroller-surface-rgb: 26 26 27;
   --xcroller-text-rgb: 245 233 226;
@@ -40,6 +41,86 @@
   --xcroller-text-rgb: 11 11 12;
   --xcroller-muted-rgb: 104 93 88;
   --xcroller-image-outline-rgb: 0 0 0;
+}
+
+.xcroller-toolbar {
+  display: grid;
+  grid-template-columns: auto minmax(12rem, 1fr) auto;
+  grid-template-areas: 'leading feeds actions';
+  align-items: center;
+  column-gap: 1rem;
+  height: 4rem;
+  padding-inline: 1.5rem;
+}
+
+.xcroller-toolbar__leading {
+  grid-area: leading;
+}
+
+.xcroller-toolbar__feeds {
+  grid-area: feeds;
+  min-width: 0;
+}
+
+.xcroller-toolbar__actions {
+  grid-area: actions;
+  justify-self: end;
+}
+
+.xcroller-media-grid {
+  padding-top: var(--xcroller-toolbar-offset);
+}
+
+.xcroller-activity-indicator {
+  top: calc(var(--xcroller-toolbar-offset) + 0.75rem);
+}
+
+@media (max-width: 1180px) {
+  :root {
+    --xcroller-toolbar-offset: 120px;
+  }
+
+  .xcroller-toolbar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: 2.75rem 2.75rem;
+    grid-template-areas:
+      'leading . actions'
+      'feeds feeds feeds';
+    column-gap: 1rem;
+    row-gap: 0.25rem;
+    height: 7.25rem;
+    padding: 0.5rem 1rem;
+  }
+
+  .xcroller-toolbar__feeds {
+    width: 100%;
+    max-width: none;
+  }
+
+  .xcroller-toolbar__actions {
+    gap: 0.75rem;
+  }
+
+  .xcroller-toolbar__volume {
+    display: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .xcroller-toolbar__leading,
+  .xcroller-toolbar__actions {
+    gap: 0.5rem;
+  }
+
+  .xcroller-toolbar__grid {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .feed-switcher__label {
+    display: none;
+  }
 }
 
 body {
@@ -226,6 +307,11 @@ body {
 .hover\:text-xcroller-on-accent:hover {
   --tw-text-opacity: 1;
   color: rgb(var(--xcroller-on-accent-rgb) / var(--tw-text-opacity, 1));
+}
+
+.theme-accent-hover:hover {
+  background-color: rgb(var(--xcroller-accent-rgb));
+  color: rgb(var(--xcroller-on-accent-rgb));
 }
 
 .focus\:border-xcroller-red:focus,

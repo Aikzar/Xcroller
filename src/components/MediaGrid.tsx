@@ -8,7 +8,6 @@ import { MediaTile } from './MediaTile';
 
 const GRID_PADDING = 30;
 const GRID_GAP = 6;
-const TOOLBAR_OFFSET = 70;
 const RENDER_OVERSCAN = 400;
 const VIDEO_PLAY_OVERSCAN = 100;
 const MAX_ACTIVE_VIDEO_COLUMNS = 8;
@@ -48,6 +47,12 @@ export const MediaGrid = () => {
     const [containerWidth, setContainerWidth] = useState(
         Math.max(1, window.innerWidth - (GRID_PADDING * 2))
     );
+    const [toolbarOffset, setToolbarOffset] = useState(() => {
+        const value = Number.parseFloat(
+            getComputedStyle(document.documentElement).getPropertyValue('--xcroller-toolbar-offset')
+        );
+        return Number.isFinite(value) ? value : 70;
+    });
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const loadMoreRef = useRef<HTMLDivElement>(null);
     const previewVideoRef = useRef<HTMLVideoElement>(null);
@@ -68,6 +73,10 @@ export const MediaGrid = () => {
         const resizeObserver = new ResizeObserver(([entry]) => {
             if (!entry) return;
             setContainerWidth(Math.max(1, entry.contentRect.width - (GRID_PADDING * 2)));
+            const nextToolbarOffset = Number.parseFloat(
+                getComputedStyle(document.documentElement).getPropertyValue('--xcroller-toolbar-offset')
+            );
+            if (Number.isFinite(nextToolbarOffset)) setToolbarOffset(nextToolbarOffset);
             setViewport({
                 top: container.scrollTop,
                 bottom: container.scrollTop + container.clientHeight
@@ -241,8 +250,8 @@ export const MediaGrid = () => {
         setIsHoverPaused(false);
     }, [setIsHoverPaused]);
 
-    const contentViewportTop = Math.max(0, viewport.top - TOOLBAR_OFFSET);
-    const contentViewportBottom = Math.max(0, viewport.bottom - TOOLBAR_OFFSET);
+    const contentViewportTop = Math.max(0, viewport.top - toolbarOffset);
+    const contentViewportBottom = Math.max(0, viewport.bottom - toolbarOffset);
 
     const visibleIndices = useMemo(() => {
         const lowerBound = contentViewportTop - RENDER_OVERSCAN;
@@ -327,7 +336,7 @@ export const MediaGrid = () => {
         <div
             id="media-scroll-container"
             ref={scrollContainerRef}
-            className="w-full h-full overflow-y-auto overflow-x-hidden no-scrollbar bg-xcroller-base pt-[70px]"
+            className="xcroller-media-grid w-full h-full overflow-y-auto overflow-x-hidden no-scrollbar bg-xcroller-base"
         >
             <div className="relative w-full" style={{ height: totalHeight }}>
                 {visibleIndices.map((index) => {
