@@ -63,3 +63,107 @@ body {
     background: rgba(255, 255, 255, 0.2);
   }
 }
+
+/*
+ * Runtime accent utilities live in this stylesheet rather than only in the
+ * Tailwind configuration. That lets a color change repaint immediately in
+ * both the packaged WebView and a running `tauri dev` session, including when
+ * the Tailwind config itself was changed while the dev server was already up.
+ */
+.bg-xcroller-red,
+.bg-xcroller-accent {
+  --tw-bg-opacity: 1;
+  background-color: rgb(var(--xcroller-accent-rgb) / var(--tw-bg-opacity, 1));
+}
+
+.bg-xcroller-red\/10 {
+  background-color: rgb(var(--xcroller-accent-rgb) / 0.1);
+}
+
+.bg-xcroller-red\/20 {
+  background-color: rgb(var(--xcroller-accent-rgb) / 0.2);
+}
+
+.bg-xcroller-red\/30 {
+  background-color: rgb(var(--xcroller-accent-rgb) / 0.3);
+}
+
+.bg-xcroller-on-accent {
+  --tw-bg-opacity: 1;
+  background-color: rgb(var(--xcroller-on-accent-rgb) / var(--tw-bg-opacity, 1));
+}
+
+.text-xcroller-accent-text {
+  --tw-text-opacity: 1;
+  color: rgb(var(--xcroller-accent-text-rgb) / var(--tw-text-opacity, 1));
+}
+
+.text-xcroller-on-accent {
+  --tw-text-opacity: 1;
+  color: rgb(var(--xcroller-on-accent-rgb) / var(--tw-text-opacity, 1));
+}
+
+.border-xcroller-red {
+  --tw-border-opacity: 1;
+  border-color: rgb(var(--xcroller-accent-rgb) / var(--tw-border-opacity, 1));
+}
+
+.border-xcroller-red\/30 {
+  border-color: rgb(var(--xcroller-accent-rgb) / 0.3);
+}
+
+.border-xcroller-red\/40 {
+  border-color: rgb(var(--xcroller-accent-rgb) / 0.4);
+}
+
+.border-t-xcroller-red\/40 {
+  border-top-color: rgb(var(--xcroller-accent-rgb) / 0.4);
+}
+
+.outline-xcroller-red {
+  outline-color: rgb(var(--xcroller-accent-rgb));
+}
+
+.accent-xcroller-red {
+  accent-color: rgb(var(--xcroller-accent-rgb));
+}
+
+.hover\:bg-xcroller-red:hover,
+.hover\:bg-xcroller-accent:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(var(--xcroller-accent-rgb) / var(--tw-bg-opacity, 1));
+}
+
+.hover\:text-xcroller-accent-text:hover,
+.group:hover .group-hover\:text-xcroller-accent-text {
+  --tw-text-opacity: 1;
+  color: rgb(var(--xcroller-accent-text-rgb) / var(--tw-text-opacity, 1));
+}
+
+.hover\:text-xcroller-on-accent:hover {
+  --tw-text-opacity: 1;
+  color: rgb(var(--xcroller-on-accent-rgb) / var(--tw-text-opacity, 1));
+}
+
+.focus\:border-xcroller-red:focus,
+.focus-visible\:border-xcroller-red:focus-visible {
+  border-color: rgb(var(--xcroller-accent-rgb));
+}
+
+.focus-visible\:outline-xcroller-accent-text:focus-visible {
+  outline-color: rgb(var(--xcroller-accent-text-rgb));
+}
+
+.selection\:bg-xcroller-red::selection,
+.selection\:bg-xcroller-red *::selection {
+  background-color: rgb(var(--xcroller-accent-rgb));
+}
+
+.selection\:text-xcroller-on-accent::selection,
+.selection\:text-xcroller-on-accent *::selection {
+  color: rgb(var(--xcroller-on-accent-rgb));
+}
+
+input[type='range'][class*='bg-xcroller-red']::-webkit-slider-thumb {
+  background-color: rgb(var(--xcroller-accent-rgb));
+}
